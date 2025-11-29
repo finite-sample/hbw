@@ -137,4 +137,3 @@ NW_WEIGHTS = {
     "gauss": nw_weights_gauss,
     "epan": nw_weights_epan,
 }
-

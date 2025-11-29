@@ -1,9 +1,8 @@
 """Edge case tests for bandwidth selection algorithms."""
 
-import math
+import os
 import random
 import sys
-import os
 
 import numpy as np
 import pytest
@@ -112,7 +111,7 @@ class TestDifferentDistributions:
         x = np.linspace(-2, 2, 20)
         for kernel in ["gauss", "epan"]:
             h_opt, _ = newton_armijo(kde_lscv, x, h0=0.5, kernel=kernel)
-            assert h_opt > 0, f"Non-positive bandwidth for uniform data"
+            assert h_opt > 0, "Non-positive bandwidth for uniform data"
 
     def test_nw_linear_function(self):
         """NW should work with linear response."""

@@ -1,0 +1,17 @@
+# Ruff configuration
+line-length = 88
+target-version = "py39"
+
+# Exclude notebooks from linting (exploratory/experimental code)
+extend-exclude = ["*.ipynb"]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "E402",  # module-level import not at top (needed for path manipulation in tests)
+    "E501",  # line too long (handled by formatter, not linter)
+]

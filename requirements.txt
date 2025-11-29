@@ -3,5 +3,4 @@ numpy>=1.20
 
 # Development/testing dependencies
 pytest>=7.0
-black>=22.0
-flake8>=4.0
+ruff>=0.1.0

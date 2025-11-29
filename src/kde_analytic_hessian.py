@@ -1,4 +1,8 @@
-"""Newton–Armijo bandwidth selection for univariate KDE using :func:`optim.newton_armijo`."""
+"""Newton–Armijo bandwidth selection for univariate KDE using :func:`optim.newton_armijo`.
+
+This module implements Least-Squares Cross-Validation (LSCV) for kernel density
+estimation with analytic gradient and Hessian computation.
+"""
 
 import argparse
 from typing import Tuple
@@ -12,15 +16,32 @@ from optim import newton_armijo
 def lscv_generic(x: np.ndarray, h: float, kernel: str) -> Tuple[float, float, float]:
     """Return LSCV score, gradient and Hessian for bandwidth *h*.
 
+    The LSCV score is an unbiased estimator of the integrated squared error
+    between the kernel density estimate and the true density.
+
     Parameters
     ----------
     x : np.ndarray
-        Sample data.
+        Sample data (1D array).
     h : float
-        Bandwidth.
+        Bandwidth (must be positive).
     kernel : str
         Kernel name: ``"gauss"`` or ``"epan"``.
+
+    Returns
+    -------
+    Tuple[float, float, float]
+        (score, gradient, hessian) of the LSCV objective w.r.t. h.
+
+    Raises
+    ------
+    ValueError
+        If h is not positive.
+    KeyError
+        If kernel name is not recognized.
     """
+    if h <= 0:
+        raise ValueError(f"Bandwidth h must be positive, got {h}")
     K, Kp, Kpp, K2, K2p, K2pp = KERNELS[kernel]
     n = len(x)
     u = (x[:, None] - x[None, :]) / h

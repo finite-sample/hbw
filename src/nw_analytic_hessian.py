@@ -1,41 +1,54 @@
-"""Newton–Armijo bandwidth selection for Nadaraya–Watson regression using :func:`optim.newton_armijo`."""
+"""Newton–Armijo bandwidth selection for Nadaraya–Watson regression using :func:`optim.newton_armijo`.
+
+This module implements Leave-One-Out Cross-Validation (LOOCV) MSE for
+Nadaraya-Watson kernel regression with analytic gradient and Hessian computation.
+"""
 
 import argparse
-from typing import Tuple
+from typing import Callable, Tuple
 
 import numpy as np
 
+from derivatives import NW_WEIGHTS
 from optim import newton_armijo
-
-SQRT_2PI = np.sqrt(2 * np.pi)
-
-
-def _weights(u: np.ndarray, h: float, kernel: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return weights w, w', w'' for given kernel."""
-    if kernel == "gauss":
-        base = np.exp(-0.5 * u * u) / (h * SQRT_2PI)
-        w1 = base * (u * u - 1) / h
-        w2 = base * (u**4 - 3 * u * u + 1) / (h * h)
-        return base, w1, w2
-    elif kernel == "epan":
-        mask = np.abs(u) <= 1
-        w = np.zeros_like(u, dtype=float)
-        w1 = np.zeros_like(u, dtype=float)
-        w2 = np.zeros_like(u, dtype=float)
-        uu = u * u
-        w[mask] = 0.75 * (1 - uu[mask]) / h
-        w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
-        w2[mask] = 1.5 * (1 - 6 * uu[mask]) / (h ** 3)
-        return w, w1, w2
-    else:
-        raise ValueError("Unknown kernel")
 
 
 def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[float, float, float]:
-    """Return LOOCV MSE, gradient and Hessian for bandwidth ``h``."""
+    """Return LOOCV MSE, gradient and Hessian for bandwidth ``h``.
+
+    The LOOCV MSE estimates the prediction error of the Nadaraya-Watson
+    estimator by leaving out each observation in turn.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Predictor values (1D array).
+    y : np.ndarray
+        Response values (1D array, same length as x).
+    h : float
+        Bandwidth parameter (must be positive).
+    kernel : str
+        Kernel name: "gauss" or "epan".
+
+    Returns
+    -------
+    Tuple[float, float, float]
+        (loss, gradient, hessian) of the LOOCV MSE w.r.t. h.
+
+    Raises
+    ------
+    ValueError
+        If h is not positive or kernel name is not recognized.
+    """
+    if h <= 0:
+        raise ValueError(f"Bandwidth h must be positive, got {h}")
+    if kernel not in NW_WEIGHTS:
+        raise ValueError(f"Unknown kernel '{kernel}'. Available: {list(NW_WEIGHTS.keys())}")
+
     n = len(x)
     u = (x[:, None] - x[None, :]) / h
-    w, w1, w2 = _weights(u, h, kernel)
+    weight_func = NW_WEIGHTS[kernel]
+    w, w1, w2 = weight_func(u, h)
     np.fill_diagonal(w, 0.0)
     np.fill_diagonal(w1, 0.0)
     np.fill_diagonal(w2, 0.0)
@@ -60,6 +73,24 @@ def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[floa
     return loss, grad, hess
 
 
+def make_nw_objective(y: np.ndarray) -> Callable[[np.ndarray, float, str], Tuple[float, float, float]]:
+    """Create a NW LOOCV objective function with fixed response values.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        Response values to use in the objective.
+
+    Returns
+    -------
+    Callable
+        Objective function with signature (x, h, kernel) -> (loss, grad, hess).
+    """
+    def objective(x: np.ndarray, h: float, kernel: str) -> Tuple[float, float, float]:
+        return loocv_mse(x, y, h, kernel)
+    return objective
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Analytic-Hessian NW bandwidth selection")
     parser.add_argument("data", nargs="?", help="Path to data with two columns x,y")
@@ -73,7 +104,8 @@ def main() -> None:
     else:
         x = np.linspace(-2, 2, 200)
         y = np.sin(x) + 0.1 * np.random.randn(len(x))
-    objective = lambda x_, h, k: loocv_mse(x_, y, h, k)
+
+    objective = make_nw_objective(y)
     h, evals = newton_armijo(objective, x, args.h0, kernel=args.kernel)
     print(f"Optimal h={h:.5f} after {evals} evaluations")
 

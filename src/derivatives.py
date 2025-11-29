@@ -103,3 +103,38 @@ KERNELS = {
     "epan": (epan, epan_p, epan_pp, epan_conv, epan_conv_p, epan_conv_pp),
 }
 
+
+# NW regression weight functions (derivatives w.r.t. h) -----------------------
+
+def nw_weights_gauss(u: np.ndarray, h: float) -> tuple:
+    """Gaussian weights and h-derivatives for Nadaraya-Watson regression.
+
+    Returns w, dw/dh, d²w/dh² for the NW kernel weight K(u)/h.
+    """
+    base = np.exp(-0.5 * u * u) / (h * SQRT_2PI)
+    w1 = base * (u * u - 1) / h
+    w2 = base * (u**4 - 3 * u * u + 1) / (h * h)
+    return base, w1, w2
+
+
+def nw_weights_epan(u: np.ndarray, h: float) -> tuple:
+    """Epanechnikov weights and h-derivatives for Nadaraya-Watson regression.
+
+    Returns w, dw/dh, d²w/dh² for the NW kernel weight K(u)/h.
+    """
+    mask = _abs(u) <= 1
+    w = np.zeros_like(u, dtype=float)
+    w1 = np.zeros_like(u, dtype=float)
+    w2 = np.zeros_like(u, dtype=float)
+    uu = u * u
+    w[mask] = 0.75 * (1 - uu[mask]) / h
+    w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
+    w2[mask] = 1.5 * (1 - 6 * uu[mask]) / (h ** 3)
+    return w, w1, w2
+
+
+NW_WEIGHTS = {
+    "gauss": nw_weights_gauss,
+    "epan": nw_weights_epan,
+}
+

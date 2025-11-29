@@ -93,7 +93,7 @@ Clone the repo and run
 python kde_analytic_hessian.py  # creates results_kde.csv
 ```
 
-Requires NumPy ≥1.20 and SciPy ≥1.9.
+Requires NumPy ≥1.20. (SciPy is only needed for the notebooks.)
 Adjust `R`, `ns`, `noises`, or `kernels` at the bottom of the script to extend the grid.
 
 ---

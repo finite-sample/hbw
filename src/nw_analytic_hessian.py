@@ -1,11 +1,11 @@
-"""Newton–Armijo bandwidth selection for Nadaraya–Watson regression using :func:`optim.newton_armijo`.
+"""Newton–Armijo bandwidth selection for Nadaraya–Watson regression.
 
 This module implements Leave-One-Out Cross-Validation (LOOCV) MSE for
 Nadaraya-Watson kernel regression with analytic gradient and Hessian computation.
 """
 
 import argparse
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 
@@ -13,7 +13,9 @@ from derivatives import NW_WEIGHTS
 from optim import newton_armijo
 
 
-def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[float, float, float]:
+def loocv_mse(
+    x: np.ndarray, y: np.ndarray, h: float, kernel: str
+) -> tuple[float, float, float]:
     """Return LOOCV MSE, gradient and Hessian for bandwidth ``h``.
 
     The LOOCV MSE estimates the prediction error of the Nadaraya-Watson
@@ -32,7 +34,7 @@ def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[floa
 
     Returns
     -------
-    Tuple[float, float, float]
+    tuple[float, float, float]
         (loss, gradient, hessian) of the LOOCV MSE w.r.t. h.
 
     Raises
@@ -43,7 +45,7 @@ def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[floa
     if h <= 0:
         raise ValueError(f"Bandwidth h must be positive, got {h}")
     if kernel not in NW_WEIGHTS:
-        raise ValueError(f"Unknown kernel '{kernel}'. Available: {list(NW_WEIGHTS.keys())}")
+        raise ValueError(f"Unknown kernel '{kernel}'. Available: {list(NW_WEIGHTS)}")
 
     n = len(x)
     u = (x[:, None] - x[None, :]) / h
@@ -55,16 +57,17 @@ def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[floa
 
     num = w @ y
     den = w.sum(axis=1)
-    den_safe = np.where(den == 0, np.finfo(float).eps, den)  # Guard against division by zero
+    eps = np.finfo(float).eps
+    den_safe = np.where(den == 0, eps, den)  # Guard against division by zero
     m = num / den_safe
 
     num1 = w1 @ y
     den1 = w1.sum(axis=1)
-    m1 = (num1 * den_safe - num * den1) / (den_safe ** 2)
+    m1 = (num1 * den_safe - num * den1) / (den_safe**2)
 
     num2 = w2 @ y
     den2 = w2.sum(axis=1)
-    m2 = (num2 * den_safe - num * den2) / (den_safe ** 2) - 2 * m1 * den1 / den_safe
+    m2 = (num2 * den_safe - num * den2) / (den_safe**2) - 2 * m1 * den1 / den_safe
 
     resid = y - m
     loss = np.mean(resid**2)
@@ -73,7 +76,9 @@ def loocv_mse(x: np.ndarray, y: np.ndarray, h: float, kernel: str) -> Tuple[floa
     return loss, grad, hess
 
 
-def make_nw_objective(y: np.ndarray) -> Callable[[np.ndarray, float, str], Tuple[float, float, float]]:
+def make_nw_objective(
+    y: np.ndarray,
+) -> Callable[[np.ndarray, float, str], tuple[float, float, float]]:
     """Create a NW LOOCV objective function with fixed response values.
 
     Parameters
@@ -86,13 +91,19 @@ def make_nw_objective(y: np.ndarray) -> Callable[[np.ndarray, float, str], Tuple
     Callable
         Objective function with signature (x, h, kernel) -> (loss, grad, hess).
     """
-    def objective(x: np.ndarray, h: float, kernel: str) -> Tuple[float, float, float]:
+
+    def objective(
+        x: np.ndarray, h: float, kernel: str
+    ) -> tuple[float, float, float]:
         return loocv_mse(x, y, h, kernel)
+
     return objective
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analytic-Hessian NW bandwidth selection")
+    parser = argparse.ArgumentParser(
+        description="Analytic-Hessian NW bandwidth selection"
+    )
     parser.add_argument("data", nargs="?", help="Path to data with two columns x,y")
     parser.add_argument("--kernel", choices=["gauss", "epan"], default="gauss")
     parser.add_argument("--h0", type=float, default=1.0, help="Initial bandwidth guess")

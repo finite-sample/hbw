@@ -2,7 +2,7 @@
 name = "analytic-bw"
 version = "0.1.0"
 description = "Analytic-Hessian bandwidth selection for KDE and NW regression"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.20",
 ]
@@ -15,18 +15,20 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py311"
 
 # Exclude notebooks from linting (exploratory/experimental code)
 extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = [
-    "E",    # pycodestyle errors
-    "F",    # pyflakes
-    "W",    # pycodestyle warnings
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "W",      # pycodestyle warnings
+    "UP",     # pyupgrade - enforce modern Python
+    "I",      # isort - import sorting
 ]
 ignore = [
-    "E402",  # module-level import not at top (needed for path manipulation in tests)
-    "E501",  # line too long (handled by formatter, not linter)
+    "E402",   # module-level import not at top (needed for path manipulation in tests)
+    "E501",   # line too long (handled by formatter, not linter)
 ]

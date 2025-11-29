@@ -6,11 +6,11 @@ mathematical formulas but with explicit Python loops instead of matrix operation
 """
 
 import math
-import sys
 import os
+import sys
 
 # Add src/ to path so we can import the production kernel functions
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from derivatives import KERNELS
 
@@ -18,10 +18,11 @@ from derivatives import KERNELS
 def _eval_scalar(func, u: float) -> float:
     """Evaluate a numpy kernel function at a scalar point."""
     import numpy as np
+
     return float(func(np.array([u]))[0])
 
 
-def lscv_generic(x, h, kernel):
+def lscv_generic(x, h, kernel) -> tuple[float, float, float]:
     """Scalar reference implementation of LSCV score, gradient, and Hessian.
 
     This implementation uses explicit loops rather than vectorized operations,
@@ -38,7 +39,7 @@ def lscv_generic(x, h, kernel):
 
     Returns
     -------
-    tuple
+    tuple[float, float, float]
         (score, gradient, hessian) at the given bandwidth.
     """
     K, Kp, Kpp, K2, K2p, K2pp = KERNELS[kernel]
@@ -67,14 +68,16 @@ def lscv_generic(x, h, kernel):
                 S_K += k + u * kp
                 S_K2 += 2 * kp + u * kpp
 
-    score = score_term1 / (n ** 2 * h) - 2 * (score_term2 / (n * (n - 1) * h))
-    grad = -S_F / (n ** 2 * h ** 2) + 2 * S_K / (n * (n - 1) * h ** 2)
-    hess = 2 * S_F / (n ** 2 * h ** 3) - S_F2 / (n ** 2 * h ** 2)
-    hess += -4 * S_K / (n * (n - 1) * h ** 3) + 2 * S_K2 / (n * (n - 1) * h ** 2)
+    score = score_term1 / (n**2 * h) - 2 * (score_term2 / (n * (n - 1) * h))
+    grad = -S_F / (n**2 * h**2) + 2 * S_K / (n * (n - 1) * h**2)
+    hess = 2 * S_F / (n**2 * h**3) - S_F2 / (n**2 * h**2)
+    hess += -4 * S_K / (n * (n - 1) * h**3) + 2 * S_K2 / (n * (n - 1) * h**2)
     return score, grad, hess
 
 
-def newton_opt(x, h0, score_grad_hess, tol=1e-5, max_iter=12):
+def newton_opt(
+    x, h0, score_grad_hess, tol=1e-5, max_iter=12
+) -> tuple[float, int]:
     """Newton-Armijo optimisation using a numeric Hessian estimate.
 
     This reference implementation computes the Hessian via finite differences,
@@ -95,7 +98,7 @@ def newton_opt(x, h0, score_grad_hess, tol=1e-5, max_iter=12):
 
     Returns
     -------
-    tuple
+    tuple[float, int]
         (optimal_h, num_evaluations)
     """
     h, evals = h0, 0

@@ -4,7 +4,7 @@ This module provides the Newton-Armijo optimizer used for bandwidth selection
 in kernel density estimation and Nadaraya-Watson regression.
 """
 
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 
@@ -28,13 +28,13 @@ FALLBACK_STEP_FACTOR: float = 0.25
 
 
 def newton_armijo(
-    objective: Callable[[np.ndarray, float, str], Tuple[float, float, float]],
+    objective: Callable[[np.ndarray, float, str], tuple[float, float, float]],
     x: np.ndarray,
     h0: float,
     kernel: str = "gauss",
     tol: float = TOL_DEFAULT,
     max_iter: int = MAX_ITER_DEFAULT,
-) -> Tuple[float, int]:
+) -> tuple[float, int]:
     """Run Newton–Armijo iterations for a generic objective.
 
     Uses Newton's method with Armijo backtracking line search to find the
@@ -58,7 +58,7 @@ def newton_armijo(
 
     Returns
     -------
-    Tuple[float, int]
+    tuple[float, int]
         Optimised bandwidth and number of objective evaluations.
 
     Raises

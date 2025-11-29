@@ -1,5 +1,6 @@
-import random
 import math
+import random
+
 from .utils import lscv_generic, newton_opt
 
 

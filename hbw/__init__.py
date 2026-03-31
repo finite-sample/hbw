@@ -11,9 +11,9 @@ converges in 6-12 evaluations vs 50-100 for grid search.
 
 from __future__ import annotations
 
+from ._kernels import _KERNELS
 from .kde import kde_bandwidth, lscv
 from .nw import loocv_mse, nw_bandwidth
-from ._kernels import _KERNELS
 
 __all__ = ["kde_bandwidth", "nw_bandwidth", "lscv", "loocv_mse", "_KERNELS"]
 __version__ = "0.1.0"

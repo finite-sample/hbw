@@ -89,6 +89,19 @@ Compute LOOCV-MSE, gradient, and Hessian for NW regression.
 
 For full mathematical details, see the [paper](ms/).
 
+## Results
+
+Newton-Armijo with analytic Hessian reaches the same optimum as grid search with 4-10× fewer objective evaluations:
+
+| Method | Evaluations | Optimum |
+|--------|-------------|---------|
+| Grid search | 50-100 | ✓ |
+| Golden-section | 20-25 | ✓ |
+| **Analytic Newton** | **6-12** | ✓ |
+| Silverman's rule | 1 | approximate |
+
+Simulation study (n ∈ {100, 200, 500}, σ ∈ {0.5, 1.0, 2.0}, Gaussian and Epanechnikov kernels, 20 replicates each) confirms Newton matches grid search ISE/MSE to 3-4 decimal places. See [ms/](ms/) for full details.
+
 ## Citation
 
 ```bibtex

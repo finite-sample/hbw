@@ -41,11 +41,10 @@ Repository = "https://github.com/soodoku/analytic-bw"
 Issues = "https://github.com/soodoku/analytic-bw/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
-only-include = ["hbw.py"]
+packages = ["hbw"]
 
 [tool.hatch.build.targets.sdist]
-only-include = ["hbw.py", "README.md", "LICENSE", "pyproject.toml"]
+only-include = ["hbw", "README.md", "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 line-length = 100

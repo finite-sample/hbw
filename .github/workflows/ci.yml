@@ -26,7 +26,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Type check with mypy
-        run: uv run mypy hbw.py
+        run: uv run mypy hbw/
 
       - name: Run tests
         run: uv run pytest

@@ -208,3 +208,7 @@ __marimo__/
 
 # Data files
 *.csv
+ms/paper.out
+ms/paper.blg
+ms/paper.aux
+ms/paper.bbl

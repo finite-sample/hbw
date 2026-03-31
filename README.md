@@ -1,96 +1,105 @@
-# Analytic‑Hessian Bandwidth Selection
+# hbw
 
-A *single* Newton step can pick the optimal kernel bandwidth if you hand it the right derivatives.  We derive **closed‑form gradients *and* Hessians** of the leave‑one‑out cross‑validation (LOOCV) risk for
+[![PyPI](https://img.shields.io/pypi/v/hbw)](https://pypi.org/project/hbw/)
+[![CI](https://github.com/soodoku/analytic-bw/actions/workflows/ci.yml/badge.svg)](https://github.com/soodoku/analytic-bw/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-* univariate **kernel‑density estimation** (KDE), and
-* univariate **Nadaraya–Watson** (NW) kernel regression,
+Fast kernel bandwidth selection via analytic Hessian Newton optimization.
 
-covering both the Gaussian and Epanechnikov kernels.  The result is a bandwidth selector that reaches the same minimum as an exhaustive grid scan while using *an order of magnitude* fewer evaluations.
+## Installation
 
----
-
-## 1  Problem & Prior Practice
-
-### 1.1  KDE bandwidth
-
-For density estimation one minimises finite‑sample risk proxies such as
-
-* **LSCV** (least‑squares CV)
-* **LCV** (likelihood CV)
-
-Common optimisers
-
-| Optimiser                               | Typical calls | Notes                 |
-| --------------------------------------- | ------------- | --------------------- |
-| Grid (50–100 \$h\$’s)                   | 50–100        | textbook default      |
-| Golden‑section                          | 20–25         | still bracketing      |
-| Plug‑in / Pilot (Sheather–Jones, Botev) | 1             | relies on asymptotics |
-
-### 1.2  NW bandwidth
-
-For regression one often minimises the LOOCV mean‑squared‑error (MSE) surface.  Again, the standard choice is a grid over 40–60 bandwidths.
-
-> **Gap** All prior work optimises by *searching* the CV surface.  Very little exploits its analytic structure beyond a first derivative.
-
----
-
-## 2  Newton–Armijo with Analytic Hessian
-
-Let \$L(h)\$ denote the CV score (LSCV for KDE, LOOCV‑MSE for NW).  In log‑bandwidth space \$u=\log h\$ we compute
-$g(u)=\frac{dL}{du},\qquad H(u)=\frac{d^2L}{du^2}.$
-With those we run
-
-```pseudo
-repeat until |Δu| < 1e‑6 or max_iter:
-    step ← −g/H           # Newton direction
-    u    ← Armijo(u,step) # back‑track to guarantee descent
+```bash
+pip install hbw
 ```
 
-* **Analytic derivatives** for both kernels avoid numerical differencing.
-* **Armijo line search** keeps stability when \$n\$ is tiny (non‑convex wiggles).
-* **Cost** = one score evaluation per back‑track (6–12 total).
+## Quick Start
 
-Closed‑form expressions are given in `derivatives.py` – two lines each.
+```python
+import numpy as np
+from hbw import kde_bandwidth, nw_bandwidth
 
----
+# KDE bandwidth selection
+x = np.random.randn(1000)
+h = kde_bandwidth(x)
+print(f"Optimal KDE bandwidth: {h:.4f}")
 
-## 3  Simulation Design
+# Nadaraya-Watson regression bandwidth
+x = np.linspace(-2, 2, 500)
+y = np.sin(2 * x) + 0.3 * np.random.randn(len(x))
+h = nw_bandwidth(x, y)
+print(f"Optimal NW bandwidth: {h:.4f}")
 
-| Component            | KDE                                                       | Nadaraya–Watson                                                                              |
-| -------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| True function        | 50‑50 mix of \$\mathcal N(-2,0.5)\$ & \$\mathcal N(2,1)\$ | \$y=f(x)+\varepsilon\$, same \$f\$ as mixture CDF, \$\varepsilon\sim\mathcal N(0,\sigma^2)\$ |
-| Sample sizes         | \$n\in{100,200,500}\$                                     | same                                                                                         |
-| Noise std \$\sigma\$ | \${0.5,1,2}\$                                             | same                                                                                         |
-| Kernels              | Gaussian & Epanechnikov                                   | Gaussian & Epanechnikov                                                                      |
-| Replicates           | \$R=20\$                                                  | \$R=20\$                                                                                     |
-| Risk metric          | ISE on \[\$-8,8\$]                                        | test‑set MSE (10 000 pts)                                                                    |
-| Methods              | Grid, Golden, Newton–Armijo, Silverman                    | Grid, Golden, Newton–Armijo, Plug‑in                                                         |
+# Large datasets: automatic subsampling
+x_large = np.random.randn(100_000)
+h = kde_bandwidth(x_large, max_n=5000, seed=42)  # Uses 5000 random points
+```
 
-Scripts: `kde_analytic_hessian.py`, `nw_analytic_hessian.py`.
+## API Reference
 
----
+### `kde_bandwidth(x, kernel="gauss", h0=None, max_n=5000, seed=None)`
 
-## 4  Results Summary
+Select optimal KDE bandwidth via LSCV minimization.
 
-See notebooks for results
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `x` | array-like | Sample data |
+| `kernel` | str | `"gauss"` or `"epan"` (Epanechnikov) |
+| `h0` | float | Initial bandwidth (default: Silverman's rule) |
+| `max_n` | int | Subsample size for large data (None to disable) |
+| `seed` | int | Random seed for reproducible subsampling |
 
----
+**Returns:** `float` - optimal bandwidth
 
-## 5  Take‑aways
+### `nw_bandwidth(x, y, kernel="gauss", h0=None, max_n=5000, seed=None)`
 
-* **Same optimum, fewer calls.** Newton reaches the exact grid minimum for both problems with 4–12× fewer evaluations.
-* **Kernel generality.** The derivation is only two lines per kernel; extending to other polynomial kernels is trivial.
-* **Small‑sample stability.** Armijo back‑tracking prevents the overshoot hiccups often seen with Epanechnikov near tiny \$h\$.
+Select optimal Nadaraya-Watson bandwidth via LOOCV-MSE minimization.
 
----
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `x` | array-like | Predictor values |
+| `y` | array-like | Response values |
+| `kernel` | str | `"gauss"` or `"epan"` |
+| `h0` | float | Initial bandwidth (default: Silverman's rule) |
+| `max_n` | int | Subsample size for large data |
+| `seed` | int | Random seed |
 
-## 6  Related Work & Novelty
+**Returns:** `float` - optimal bandwidth
 
-| Reference                      | Setting    | Optimiser         | Criterion            | Notes                                |
-| ------------------------------ | ---------- | ----------------- | -------------------- | ------------------------------------ |
-| Loader 1999; Wand & Jones 1995 | KDE        | Grid / golden     | LSCV                 | Textbook standard                    |
-| Chiu 1992                      | KDE        | Newton            | **GCV** only         | No Hessian; Gaussian kernel only     |
-| Fan & Gijbels 1995             | Local poly | Iterative plug‑in | Asymptotic MISE      | Different objective                  |
-| Härdle (LOLVC)                 | NW         | Grid              | LOOCV                | Widely cited                         |
-| **This work**                  | KDE & NW   | **Newton–Armijo** | **Exact LOOCV/LSCV** | First analytic Hessian; 4–12× faster |
+### `lscv(x, h, kernel="gauss")`
 
+Compute LSCV score, gradient, and Hessian for KDE.
+
+**Returns:** `tuple[float, float, float]` - (score, gradient, hessian)
+
+### `loocv_mse(x, y, h, kernel="gauss")`
+
+Compute LOOCV-MSE, gradient, and Hessian for NW regression.
+
+**Returns:** `tuple[float, float, float]` - (loss, gradient, hessian)
+
+## How It Works
+
+**Problem:** Cross-validation bandwidth selection requires O(n²) per evaluation. Grid search needs 50-100 evaluations.
+
+**Solution:** We derive closed-form gradients *and* Hessians for the LSCV (KDE) and LOOCV-MSE (NW) objectives. This enables Newton optimization that converges in 6-12 evaluations—same optimum, 4-10x fewer evaluations.
+
+**Supported kernels:**
+- Gaussian: `K(u) = exp(-u²/2) / √(2π)`
+- Epanechnikov: `K(u) = 0.75(1-u²)` for |u| ≤ 1
+
+For full mathematical details, see the [paper](ms/).
+
+## Citation
+
+```bibtex
+@misc{hbw2024,
+  author = {Sood, Gaurav},
+  title = {Analytic-Hessian Bandwidth Selection for Kernel Density Estimation and Nadaraya-Watson Regression},
+  year = {2024},
+  url = {https://github.com/soodoku/analytic-bw}
+}
+```
+
+## License
+
+MIT

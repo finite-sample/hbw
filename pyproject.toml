@@ -35,10 +35,10 @@ dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4"]
 docs = ["sphinx>=7.0", "furo", "sphinx-copybutton", "sphinx-autodoc-typehints"]
 
 [project.urls]
-Homepage = "https://github.com/soodoku/analytic-bw"
+Homepage = "https://github.com/finite-sample/hbw"
 Documentation = "https://soodoku.github.io/analytic-bw"
-Repository = "https://github.com/soodoku/analytic-bw"
-Issues = "https://github.com/soodoku/analytic-bw/issues"
+Repository = "https://github.com/finite-sample/hbw"
+Issues = "https://github.com/finite-sample/hbw/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["hbw"]

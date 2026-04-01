@@ -32,8 +32,64 @@ def _nw_weights(
         w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
         w2[mask] = 1.5 * (1 - 6 * uu[mask]) / (h**3)
         return w, w1, w2
+    elif kernel == "unif":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w[mask] = 0.5 / h
+        w1 = np.zeros_like(u, dtype=float)
+        w2 = np.zeros_like(u, dtype=float)
+        return w, w1, w2
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
+
+
+def loocv_mse_score(
+    x: NDArray[Any],
+    y: NDArray[Any],
+    h: float,
+    kernel: str = "gauss",
+) -> float:
+    """Compute only the LOOCV MSE (no gradient/Hessian).
+
+    This is more efficient for grid search where only the score is needed.
+
+    Parameters
+    ----------
+    x
+        Predictor values (1D array).
+    y
+        Response values (1D array).
+    h
+        Bandwidth.
+    kernel
+        Kernel name: "gauss", "epan", or "unif".
+
+    Returns
+    -------
+    float
+        LOOCV MSE score.
+    """
+    if kernel == "gauss":
+        base = np.exp(-0.5 * ((x[:, None] - x[None, :]) / h) ** 2) / (h * _SQRT_2PI)
+    elif kernel == "epan":
+        u = (x[:, None] - x[None, :]) / h
+        mask = np.abs(u) <= 1
+        base = np.zeros_like(u, dtype=float)
+        base[mask] = 0.75 * (1 - u[mask] ** 2) / h
+    elif kernel == "unif":
+        u = (x[:, None] - x[None, :]) / h
+        mask = np.abs(u) <= 1
+        base = np.zeros_like(u, dtype=float)
+        base[mask] = 0.5 / h
+    else:
+        raise ValueError(f"Unknown kernel: {kernel}")
+
+    np.fill_diagonal(base, 0.0)
+    num = base @ y
+    den = base.sum(axis=1)
+    den_safe = np.where(den == 0, np.finfo(float).eps, den)
+    m = num / den_safe
+    return float(np.mean((y - m) ** 2))
 
 
 def loocv_mse(
@@ -133,12 +189,12 @@ def nw_bandwidth(
     if len(x_arr) != len(y_arr):
         raise ValueError(f"x and y must have same length, got {len(x_arr)} and {len(y_arr)}")
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be 'gauss' or 'epan', got {kernel!r}")
+        raise ValueError(f"kernel must be 'gauss', 'epan', or 'unif', got {kernel!r}")
 
     rng = np.random.default_rng(seed)
     x_opt, y_opt = _subsample(x_arr, y_arr, max_n, rng)
 
     if h0 is None:
-        h0 = _silverman_h(x_opt)
+        h0 = _silverman_h(x_opt, kernel)
 
-    return _newton_armijo(loocv_mse, x_opt, y_opt, h0, kernel)
+    return _newton_armijo(loocv_mse, x_opt, y_opt, h0, kernel, score_only=loocv_mse_score)

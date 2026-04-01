@@ -21,7 +21,7 @@ def test_lscv_derivatives_against_finite_diff() -> None:
     """Verify LSCV analytic gradient matches finite-difference."""
     rng = random.Random(0)
     x = np.array([rng.gauss(0, 1) for _ in range(15)])
-    for kernel in ["gauss", "epan"]:
+    for kernel in ["gauss", "epan", "unif"]:
         for h in [0.5, 1.0, 1.5]:
             _, grad, _ = lscv(x, h, kernel)
             k = kernel

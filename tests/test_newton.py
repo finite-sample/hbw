@@ -24,7 +24,7 @@ def test_newton_matches_grid_search() -> None:
     rng = random.Random(1)
     x = mixture_sample(30, rng)
     grid = [0.1 + i * (2.0 - 0.1) / 39 for i in range(40)]
-    for kernel in ["gauss", "epan"]:
+    for kernel in ["gauss", "epan", "unif"]:
         scores = [lscv(x, h, kernel)[0] for h in grid]
         h_grid = grid[scores.index(min(scores))]
 

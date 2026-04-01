@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hbw"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fast kernel bandwidth selection via analytic Hessian Newton optimization"
 readme = "README.md"
 license = "MIT"
@@ -36,7 +36,7 @@ docs = ["sphinx>=7.0", "furo", "sphinx-copybutton", "sphinx-autodoc-typehints"]
 
 [project.urls]
 Homepage = "https://github.com/finite-sample/hbw"
-Documentation = "https://soodoku.github.io/analytic-bw"
+Documentation = "https://finite-sample.github.io/hbw"
 Repository = "https://github.com/finite-sample/hbw"
 Issues = "https://github.com/finite-sample/hbw/issues"
 
@@ -63,3 +63,8 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "scipy>=1.17.1",
+]

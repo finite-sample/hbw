@@ -91,7 +91,43 @@ def _epan_conv_pp(u: NDArray[Any]) -> NDArray[Any]:
     return _poly_mask(u, mask, poly)
 
 
+def _unif(u: NDArray[Any]) -> NDArray[Any]:
+    """Uniform (rectangular) kernel K(u) = 0.5 for |u| <= 1."""
+    mask = np.abs(u) <= 1
+    return _poly_mask(u, mask, np.full_like(u, 0.5))
+
+
+def _unif_p(u: NDArray[Any]) -> NDArray[Any]:
+    """First derivative of uniform kernel (zero inside support)."""
+    return np.zeros_like(u, dtype=float)
+
+
+def _unif_pp(u: NDArray[Any]) -> NDArray[Any]:
+    """Second derivative of uniform kernel (zero inside support)."""
+    return np.zeros_like(u, dtype=float)
+
+
+def _unif_conv(u: NDArray[Any]) -> NDArray[Any]:
+    """Convolution K*K of uniform kernel (triangle/tent function)."""
+    absu = np.abs(u)
+    mask = absu <= 2
+    return _poly_mask(u, mask, 0.5 * (1 - 0.5 * absu))
+
+
+def _unif_conv_p(u: NDArray[Any]) -> NDArray[Any]:
+    """First derivative of uniform kernel convolution."""
+    absu = np.abs(u)
+    mask = absu <= 2
+    return _poly_mask(u, mask, -0.25 * np.sign(u))
+
+
+def _unif_conv_pp(u: NDArray[Any]) -> NDArray[Any]:
+    """Second derivative of uniform kernel convolution (zero except at u=0)."""
+    return np.zeros_like(u, dtype=float)
+
+
 _KERNELS = {
     "gauss": (_gauss, _gauss_p, _gauss_pp, _gauss_conv, _gauss_conv_p, _gauss_conv_pp),
     "epan": (_epan, _epan_p, _epan_pp, _epan_conv, _epan_conv_p, _epan_conv_pp),
+    "unif": (_unif, _unif_p, _unif_pp, _unif_conv, _unif_conv_p, _unif_conv_pp),
 }

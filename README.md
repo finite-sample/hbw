@@ -1,7 +1,7 @@
 # hbw
 
 [![PyPI](https://img.shields.io/pypi/v/hbw)](https://pypi.org/project/hbw/)
-[![CI](https://github.com/soodoku/analytic-bw/actions/workflows/ci.yml/badge.svg)](https://github.com/soodoku/analytic-bw/actions/workflows/ci.yml)
+[![CI](https://github.com/finite-sample/hbw/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/hbw/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Fast kernel bandwidth selection via analytic Hessian Newton optimization.
@@ -109,7 +109,7 @@ Simulation study (n ∈ {100, 200, 500}, σ ∈ {0.5, 1.0, 2.0}, Gaussian and Ep
   author = {Sood, Gaurav},
   title = {Analytic-Hessian Bandwidth Selection for Kernel Density Estimation and Nadaraya-Watson Regression},
   year = {2024},
-  url = {https://github.com/soodoku/analytic-bw}
+  url = {https://github.com/finite-sample/hbw}
 }
 ```
 

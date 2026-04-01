@@ -3,6 +3,8 @@
 [![PyPI](https://img.shields.io/pypi/v/hbw)](https://pypi.org/project/hbw/)
 [![CI](https://github.com/finite-sample/hbw/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/hbw/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Downloads](https://static.pepy.tech/badge/hbw)](https://pepy.tech/project/hbw)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://finite-sample.github.io/hbw)
 
 Fast kernel bandwidth selection via analytic Hessian Newton optimization.
 

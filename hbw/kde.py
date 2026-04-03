@@ -41,6 +41,47 @@ def lscv_score(x: NDArray[Any], h: float, kernel: str = "gauss") -> float:
     return float(term1 - 2 * term2)
 
 
+def lscv_grad(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float]:
+    """Compute LSCV score and gradient (no Hessian) for KDE bandwidth selection.
+
+    This is more efficient than lscv() when only score and gradient are needed,
+    as it skips the K'' and (K*K)'' computations required for the Hessian.
+
+    Parameters
+    ----------
+    x
+        Sample data (1D array).
+    h
+        Bandwidth.
+    kernel
+        Kernel name: "gauss", "epan", or "unif".
+
+    Returns
+    -------
+    tuple[float, float]
+        (score, gradient) of the LSCV objective.
+    """
+    K, Kp, _, K2, K2p, _ = _KERNELS[kernel]
+    n = len(x)
+    u = (x[:, None] - x[None, :]) / h
+
+    K2_u = K2(u)
+    K2p_u = K2p(u)
+    K_u = K(u)
+    Kp_u = Kp(u)
+
+    term1 = K2_u.sum() / (n**2 * h)
+    term2 = (K_u.sum() - np.trace(K_u)) / (n * (n - 1) * h)
+    score = float(term1 - 2 * term2)
+
+    S_F = (K2_u + u * K2p_u).sum()
+    S_K_matrix = K_u + u * Kp_u
+    S_K = S_K_matrix.sum() - np.trace(S_K_matrix)
+    grad = float(-S_F / (n**2 * h**2) + 2 * S_K / (n * (n - 1) * h**2))
+
+    return score, grad
+
+
 def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float, float]:
     """Compute LSCV score, gradient, and Hessian for KDE bandwidth selection.
 
@@ -125,7 +166,7 @@ def kde_bandwidth(
     """
     x_arr = np.asarray(x, dtype=float).ravel()
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be 'gauss', 'epan', or 'unif', got {kernel!r}")
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
 
     rng = np.random.default_rng(seed)
     x_opt, _ = _subsample(x_arr, None, max_n, rng)
@@ -133,7 +174,9 @@ def kde_bandwidth(
     if h0 is None:
         h0 = _silverman_h(x_opt, kernel)
 
-    return _newton_armijo(lscv, x_opt, None, h0, kernel, score_only=lscv_score)
+    return _newton_armijo(
+        lscv, x_opt, None, h0, kernel, score_only=lscv_score, grad_only=lscv_grad
+    )
 
 
 def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float, float]:
@@ -304,7 +347,7 @@ def kde_bandwidth_mv(
 
     n, d = data_arr.shape
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be 'gauss', 'epan', or 'unif', got {kernel!r}")
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
     if d > 4:
         warnings.warn(
             f"Dimension d={d} is high; KDE becomes unreliable due to curse of dimensionality",

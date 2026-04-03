@@ -45,6 +45,7 @@ def _newton_armijo(
     tol: float = 1e-5,
     max_iter: int = 12,
     score_only: Callable[..., float] | None = None,
+    grad_only: Callable[..., tuple[float, float]] | None = None,
 ) -> float:
     """Run Newton-Armijo optimization for bandwidth selection.
 
@@ -67,6 +68,9 @@ def _newton_armijo(
     score_only
         Optional score-only function for efficient backtracking.
         If None, uses objective(...)[0].
+    grad_only
+        Optional gradient-only function returning (score, gradient).
+        Currently unused but kept for API compatibility.
     """
 
     def _eval_score(h: float) -> float:
@@ -74,29 +78,48 @@ def _newton_armijo(
             return score_only(x, h, kernel) if y is None else score_only(x, y, h, kernel)
         return objective(x, h, kernel)[0] if y is None else objective(x, y, h, kernel)[0]
 
+    def _eval_full(h: float) -> tuple[float, float, float]:
+        return objective(x, h, kernel) if y is None else objective(x, y, h, kernel)
+
     def _run_from(h_start: float) -> tuple[float, float]:
         h = h_start
-        f = _eval_score(h)
+        f, g, H = _eval_full(h)
+        f_prev = float("inf")
+
         for _ in range(max_iter):
-            if y is None:
-                _, g, H = objective(x, h, kernel)
-            else:
-                _, g, H = objective(x, y, h, kernel)
             if abs(g) < tol:
                 break
-            step = (
-                -g / H if H > 0 and np.isfinite(H) else (0.25 * h * np.sign(-g) if g != 0 else 0.0)
-            )
+            if abs(f - f_prev) < 1e-8 * abs(f):
+                break
+            f_prev = f
+
+            if H > 0 and np.isfinite(H):
+                step = -g / H
+                step = np.clip(step, -0.5 * h, 0.5 * h)
+            else:
+                step = 0.1 * h * np.sign(-g) if g != 0 else 0.0
             if abs(step) / h < 1e-3:
                 break
-            for _ in range(10):
+
+            h_new = max(h + step, 1e-6)
+            f_new = _eval_score(h_new)
+
+            if f_new < f:
+                h = h_new
+                f, g, H = _eval_full(h)
+                continue
+
+            for _ in range(4):
+                step *= 0.5
                 h_new = max(h + step, 1e-6)
                 f_new = _eval_score(h_new)
                 if f_new < f:
                     h = h_new
-                    f = f_new
+                    f, g, H = _eval_full(h)
                     break
-                step *= 0.5
+            else:
+                break
+
         return h, f
 
     h_best, f_best = _run_from(h0)

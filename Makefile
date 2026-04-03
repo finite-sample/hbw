@@ -5,7 +5,7 @@ test:
 
 lint:
 	uv run ruff check .
-	uv run mypy hbw.py
+	uv run mypy hbw/
 
 docs:
 	uv run sphinx-build docs docs/_build/html

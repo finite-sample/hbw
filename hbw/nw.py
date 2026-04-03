@@ -39,6 +39,61 @@ def _nw_weights(
         w1 = np.zeros_like(u, dtype=float)
         w2 = np.zeros_like(u, dtype=float)
         return w, w1, w2
+    elif kernel == "biweight":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        w2 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        one_minus_uu = 1 - uu
+        w[mask] = (15 / 16) * one_minus_uu[mask] ** 2 / h
+        w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
+        w2[mask] = (
+            (15 / 8)
+            * (1 - 12 * uu[mask] + 20 * uu[mask] ** 2 - 5 * uu[mask] ** 3)
+            / (h**3)
+        )
+        return w, w1, w2
+    elif kernel == "triweight":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        w2 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        one_minus_uu = 1 - uu
+        w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
+        w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
+        w2[mask] = (
+            (35 / 16)
+            * one_minus_uu[mask]
+            * (1 - 20 * uu[mask] + 35 * uu[mask] ** 2)
+            / (h**3)
+        )
+        return w, w1, w2
+    elif kernel == "cosine":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        w2 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        cos_val = np.cos(np.pi * u / 2)
+        sin_val = np.sin(np.pi * u / 2)
+        pi = np.pi
+        w[mask] = (pi / 4) * cos_val[mask] / h
+        w1[mask] = (
+            (pi / 4)
+            * ((pi**2 * uu[mask] / 4 - 1) * cos_val[mask] - (pi * u[mask] / 2) * sin_val[mask])
+            / (h * h)
+        )
+        w2[mask] = (
+            (pi / 4)
+            * (
+                (2 - 3 * pi**2 * uu[mask] / 2 + pi**4 * uu[mask] ** 2 / 16) * cos_val[mask]
+                + (3 * pi * u[mask] / 2 - pi**3 * uu[mask] * u[mask] / 8) * sin_val[mask]
+            )
+            / (h**3)
+        )
+        return w, w1, w2
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
 
@@ -81,6 +136,21 @@ def loocv_mse_score(
         mask = np.abs(u) <= 1
         base = np.zeros_like(u, dtype=float)
         base[mask] = 0.5 / h
+    elif kernel == "biweight":
+        u = (x[:, None] - x[None, :]) / h
+        mask = np.abs(u) <= 1
+        base = np.zeros_like(u, dtype=float)
+        base[mask] = (15 / 16) * (1 - u[mask] ** 2) ** 2 / h
+    elif kernel == "triweight":
+        u = (x[:, None] - x[None, :]) / h
+        mask = np.abs(u) <= 1
+        base = np.zeros_like(u, dtype=float)
+        base[mask] = (35 / 32) * (1 - u[mask] ** 2) ** 3 / h
+    elif kernel == "cosine":
+        u = (x[:, None] - x[None, :]) / h
+        mask = np.abs(u) <= 1
+        base = np.zeros_like(u, dtype=float)
+        base[mask] = (np.pi / 4) * np.cos(np.pi * u[mask] / 2) / h
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
 
@@ -90,6 +160,115 @@ def loocv_mse_score(
     den_safe = np.where(den == 0, np.finfo(float).eps, den)
     m = num / den_safe
     return float(np.mean((y - m) ** 2))
+
+
+def _nw_weights_grad(
+    u: NDArray[Any],
+    h: float,
+    kernel: str,
+) -> tuple[NDArray[Any], NDArray[Any]]:
+    """Return weights w, w' for Nadaraya-Watson (no second derivative)."""
+    if kernel == "gauss":
+        base = np.exp(-0.5 * u * u) / (h * _SQRT_2PI)
+        w1 = base * (u * u - 1) / h
+        return base, w1
+    elif kernel == "epan":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        w[mask] = 0.75 * (1 - uu[mask]) / h
+        w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
+        return w, w1
+    elif kernel == "unif":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w[mask] = 0.5 / h
+        w1 = np.zeros_like(u, dtype=float)
+        return w, w1
+    elif kernel == "biweight":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        one_minus_uu = 1 - uu
+        w[mask] = (15 / 16) * one_minus_uu[mask] ** 2 / h
+        w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
+        return w, w1
+    elif kernel == "triweight":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        one_minus_uu = 1 - uu
+        w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
+        w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
+        return w, w1
+    elif kernel == "cosine":
+        mask = np.abs(u) <= 1
+        w = np.zeros_like(u, dtype=float)
+        w1 = np.zeros_like(u, dtype=float)
+        uu = u * u
+        cos_val = np.cos(np.pi * u / 2)
+        sin_val = np.sin(np.pi * u / 2)
+        pi = np.pi
+        w[mask] = (pi / 4) * cos_val[mask] / h
+        w1[mask] = (
+            (pi / 4)
+            * ((pi**2 * uu[mask] / 4 - 1) * cos_val[mask] - (pi * u[mask] / 2) * sin_val[mask])
+            / (h * h)
+        )
+        return w, w1
+    else:
+        raise ValueError(f"Unknown kernel: {kernel}")
+
+
+def loocv_mse_grad(
+    x: NDArray[Any],
+    y: NDArray[Any],
+    h: float,
+    kernel: str = "gauss",
+) -> tuple[float, float]:
+    """Compute LOOCV MSE and gradient (no Hessian) for NW bandwidth selection.
+
+    This is more efficient than loocv_mse() when only loss and gradient are needed,
+    as it skips the w'' computation required for the Hessian.
+
+    Parameters
+    ----------
+    x
+        Predictor values (1D array).
+    y
+        Response values (1D array).
+    h
+        Bandwidth.
+    kernel
+        Kernel name: "gauss", "epan", or "unif".
+
+    Returns
+    -------
+    tuple[float, float]
+        (loss, gradient) of the LOOCV MSE objective.
+    """
+    n = len(x)
+    u = (x[:, None] - x[None, :]) / h
+    w, w1 = _nw_weights_grad(u, h, kernel)
+    np.fill_diagonal(w, 0.0)
+    np.fill_diagonal(w1, 0.0)
+
+    num = w @ y
+    den = w.sum(axis=1)
+    den_safe = np.where(den == 0, np.finfo(float).eps, den)
+    m = num / den_safe
+
+    num1 = w1 @ y
+    den1 = w1.sum(axis=1)
+    m1 = (num1 * den_safe - num * den1) / (den_safe**2)
+
+    resid = y - m
+    loss = float(np.mean(resid**2))
+    grad = float((-2.0 / n) * np.sum(resid * m1))
+    return loss, grad
 
 
 def loocv_mse(
@@ -189,7 +368,7 @@ def nw_bandwidth(
     if len(x_arr) != len(y_arr):
         raise ValueError(f"x and y must have same length, got {len(x_arr)} and {len(y_arr)}")
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be 'gauss', 'epan', or 'unif', got {kernel!r}")
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
 
     rng = np.random.default_rng(seed)
     x_opt, y_opt = _subsample(x_arr, y_arr, max_n, rng)
@@ -197,4 +376,6 @@ def nw_bandwidth(
     if h0 is None:
         h0 = _silverman_h(x_opt, kernel)
 
-    return _newton_armijo(loocv_mse, x_opt, y_opt, h0, kernel, score_only=loocv_mse_score)
+    return _newton_armijo(
+        loocv_mse, x_opt, y_opt, h0, kernel, score_only=loocv_mse_score, grad_only=loocv_mse_grad
+    )

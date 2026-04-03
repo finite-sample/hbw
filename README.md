@@ -51,7 +51,7 @@ Select optimal KDE bandwidth via LSCV minimization.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `x` | array-like | Sample data |
-| `kernel` | str | `"gauss"`, `"epan"` (Epanechnikov), or `"unif"` (uniform) |
+| `kernel` | str | `"gauss"`, `"epan"`, `"unif"`, `"biweight"`, `"triweight"`, or `"cosine"` |
 | `h0` | float | Initial bandwidth (default: Silverman's rule) |
 | `max_n` | int | Subsample size for large data (None to disable) |
 | `seed` | int | Random seed for reproducible subsampling |
@@ -66,7 +66,7 @@ Select optimal Nadaraya-Watson bandwidth via LOOCV-MSE minimization.
 |-----------|------|-------------|
 | `x` | array-like | Predictor values |
 | `y` | array-like | Response values |
-| `kernel` | str | `"gauss"`, `"epan"`, or `"unif"` |
+| `kernel` | str | `"gauss"`, `"epan"`, `"unif"`, `"biweight"`, `"triweight"`, or `"cosine"` |
 | `h0` | float | Initial bandwidth (default: Silverman's rule) |
 | `max_n` | int | Subsample size for large data |
 | `seed` | int | Random seed |
@@ -92,7 +92,7 @@ Select optimal multivariate KDE bandwidth via LSCV minimization with product ker
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `data` | array-like | Sample data, shape (n, d) |
-| `kernel` | str | `"gauss"`, `"epan"`, or `"unif"` |
+| `kernel` | str | `"gauss"`, `"epan"`, `"unif"`, `"biweight"`, `"triweight"`, or `"cosine"` |
 | `h0` | float | Initial bandwidth (default: Scott's rule) |
 | `max_n` | int | Subsample size for large data |
 | `seed` | int | Random seed |
@@ -116,23 +116,37 @@ Compute LSCV score, gradient, and Hessian for multivariate KDE.
 - Gaussian: `K(u) = exp(-u²/2) / √(2π)`
 - Epanechnikov: `K(u) = 0.75(1-u²)` for |u| ≤ 1
 - Uniform: `K(u) = 0.5` for |u| ≤ 1
+- Biweight: `K(u) = (15/16)(1-u²)²` for |u| ≤ 1
+- Triweight: `K(u) = (35/32)(1-u²)³` for |u| ≤ 1
+- Cosine: `K(u) = (π/4)cos(πu/2)` for |u| ≤ 1
 
 For full mathematical details, see the [paper](ms/).
 
 ## Results
 
-Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with **2-2.5× wall-clock speedup**:
+Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with significant speedups:
 
-| Method | Evaluations | Wall-clock (n=500) | Optimum |
-|--------|-------------|-------------------|---------|
-| Grid search | 50 | 71 ms | ✓ |
-| Brent | 10-12 | 46 ms | ✓ |
-| **Analytic Newton** | **6-12** | **38 ms** | ✓ |
-| Silverman's rule | 1 | 0.08 ms | approximate |
+**KDE (n=500):**
+| Kernel | Newton | Grid (50 pts) | Speedup |
+|--------|--------|---------------|---------|
+| Gaussian | 54 ms | 70 ms | 1.3× |
+| Epanechnikov | 124 ms | 213 ms | 1.7× |
+| Biweight | 205 ms | 294 ms | 1.4× |
+| Triweight | 354 ms | 497 ms | 1.4× |
+| Cosine | 150 ms | 239 ms | 1.6× |
 
-**Bootstrap use case**: For 200 bootstrap resamples at n=500, Newton saves 75 seconds (125s → 50s).
+**NW Regression (n=500):**
+| Kernel | Newton | Grid (50 pts) | Speedup |
+|--------|--------|---------------|---------|
+| Gaussian | 16 ms | 39 ms | 2.5× |
+| Epanechnikov | 21 ms | 52 ms | 2.5× |
+| Biweight | 20 ms | 53 ms | 2.6× |
+| Triweight | 21 ms | 82 ms | 3.9× |
+| Cosine | 11 ms | 75 ms | 6.9× |
 
-Tested across sample sizes (100-500), noise levels, four DGPs (bimodal, unimodal, skewed, heavy-tailed), and both Gaussian/Epanechnikov kernels. See [ms/](ms/) for full details.
+**Bootstrap use case**: For 200 bootstrap resamples at n=500, Newton saves significant computation time.
+
+Tested across sample sizes (100-500), noise levels, four DGPs (bimodal, unimodal, skewed, heavy-tailed), and all six kernels. See [ms/](ms/) for full details.
 
 ## Citation
 

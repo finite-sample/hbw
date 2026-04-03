@@ -6,6 +6,8 @@ import random
 import numpy as np
 
 from hbw import lscv
+from hbw.kde import lscv_grad
+from hbw.nw import loocv_mse, loocv_mse_grad
 
 
 def finite_diff(f, h: float, eps: float = 1e-5) -> tuple[float, float]:
@@ -21,9 +23,34 @@ def test_lscv_derivatives_against_finite_diff() -> None:
     """Verify LSCV analytic gradient matches finite-difference."""
     rng = random.Random(0)
     x = np.array([rng.gauss(0, 1) for _ in range(15)])
-    for kernel in ["gauss", "epan", "unif"]:
+    for kernel in ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]:
         for h in [0.5, 1.0, 1.5]:
             _, grad, _ = lscv(x, h, kernel)
             k = kernel
             num_grad, _ = finite_diff(lambda hh, k=k: lscv(x, hh, k)[0], h)
             assert math.isclose(grad, num_grad, rel_tol=1e-4, abs_tol=1e-5)
+
+
+def test_lscv_grad_matches_lscv() -> None:
+    """Verify lscv_grad returns same score and gradient as lscv."""
+    rng = random.Random(42)
+    x = np.array([rng.gauss(0, 1) for _ in range(20)])
+    for kernel in ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]:
+        for h in [0.3, 0.7, 1.2]:
+            score_full, grad_full, _ = lscv(x, h, kernel)
+            score_grad, grad_grad = lscv_grad(x, h, kernel)
+            assert math.isclose(score_full, score_grad, rel_tol=1e-10)
+            assert math.isclose(grad_full, grad_grad, rel_tol=1e-10)
+
+
+def test_loocv_mse_grad_matches_loocv_mse() -> None:
+    """Verify loocv_mse_grad returns same loss and gradient as loocv_mse."""
+    rng = random.Random(42)
+    x = np.array([rng.gauss(0, 1) for _ in range(20)])
+    y = np.sin(x) + np.array([rng.gauss(0, 0.1) for _ in range(20)])
+    for kernel in ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]:
+        for h in [0.3, 0.7, 1.2]:
+            loss_full, grad_full, _ = loocv_mse(x, y, h, kernel)
+            loss_grad, grad_grad = loocv_mse_grad(x, y, h, kernel)
+            assert math.isclose(loss_full, loss_grad, rel_tol=1e-10)
+            assert math.isclose(grad_full, grad_grad, rel_tol=1e-10)

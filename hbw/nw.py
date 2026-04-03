@@ -1,13 +1,25 @@
 """NW bandwidth selection via LOOCV-MSE minimization."""
 
-from __future__ import annotations
-
 from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from ._kernels import _KERNELS, _SQRT_2PI
+from ._numba_nw import (
+    loocv_numba_biweight,
+    loocv_numba_cosine,
+    loocv_numba_epan,
+    loocv_numba_gauss,
+    loocv_numba_triweight,
+    loocv_numba_unif,
+    loocv_score_numba_biweight,
+    loocv_score_numba_cosine,
+    loocv_score_numba_epan,
+    loocv_score_numba_gauss,
+    loocv_score_numba_triweight,
+    loocv_score_numba_unif,
+)
 from ._optim import _newton_armijo, _silverman_h, _subsample
 
 
@@ -48,11 +60,7 @@ def _nw_weights(
         one_minus_uu = 1 - uu
         w[mask] = (15 / 16) * one_minus_uu[mask] ** 2 / h
         w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
-        w2[mask] = (
-            (15 / 8)
-            * (1 - 12 * uu[mask] + 20 * uu[mask] ** 2 - 5 * uu[mask] ** 3)
-            / (h**3)
-        )
+        w2[mask] = (15 / 8) * (1 - 12 * uu[mask] + 20 * uu[mask] ** 2 - 5 * uu[mask] ** 3) / (h**3)
         return w, w1, w2
     elif kernel == "triweight":
         mask = np.abs(u) <= 1
@@ -64,10 +72,7 @@ def _nw_weights(
         w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
         w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
         w2[mask] = (
-            (35 / 16)
-            * one_minus_uu[mask]
-            * (1 - 20 * uu[mask] + 35 * uu[mask] ** 2)
-            / (h**3)
+            (35 / 16) * one_minus_uu[mask] * (1 - 20 * uu[mask] + 35 * uu[mask] ** 2) / (h**3)
         )
         return w, w1, w2
     elif kernel == "cosine":
@@ -322,6 +327,42 @@ def loocv_mse(
     return loss, grad, hess
 
 
+def _loocv_numba_wrapper(
+    x: NDArray[Any], y: NDArray[Any], h: float, kernel: str
+) -> tuple[float, float, float]:
+    """Wrap numba functions to match numpy API signature."""
+    if kernel == "gauss":
+        return loocv_numba_gauss(x, y, h)
+    elif kernel == "epan":
+        return loocv_numba_epan(x, y, h)
+    elif kernel == "unif":
+        return loocv_numba_unif(x, y, h)
+    elif kernel == "biweight":
+        return loocv_numba_biweight(x, y, h)
+    elif kernel == "triweight":
+        return loocv_numba_triweight(x, y, h)
+    elif kernel == "cosine":
+        return loocv_numba_cosine(x, y, h)
+    raise ValueError(f"Numba not available for kernel {kernel!r}")
+
+
+def _loocv_score_numba_wrapper(x: NDArray[Any], y: NDArray[Any], h: float, kernel: str) -> float:
+    """Wrap numba score functions to match numpy API signature."""
+    if kernel == "gauss":
+        return loocv_score_numba_gauss(x, y, h)
+    elif kernel == "epan":
+        return loocv_score_numba_epan(x, y, h)
+    elif kernel == "unif":
+        return loocv_score_numba_unif(x, y, h)
+    elif kernel == "biweight":
+        return loocv_score_numba_biweight(x, y, h)
+    elif kernel == "triweight":
+        return loocv_score_numba_triweight(x, y, h)
+    elif kernel == "cosine":
+        return loocv_score_numba_cosine(x, y, h)
+    raise ValueError(f"Numba not available for kernel {kernel!r}")
+
+
 def nw_bandwidth(
     x: ArrayLike,
     y: ArrayLike,
@@ -377,5 +418,10 @@ def nw_bandwidth(
         h0 = _silverman_h(x_opt, kernel)
 
     return _newton_armijo(
-        loocv_mse, x_opt, y_opt, h0, kernel, score_only=loocv_mse_score, grad_only=loocv_mse_grad
+        _loocv_numba_wrapper,
+        x_opt,
+        y_opt,
+        h0,
+        kernel,
+        score_only=_loocv_score_numba_wrapper,
     )

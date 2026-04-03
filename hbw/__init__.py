@@ -9,23 +9,21 @@ of the cross-validation objectives, enabling Newton optimization that
 converges in 6-12 evaluations vs 50-100 for grid search.
 """
 
-from __future__ import annotations
-
 from ._kernels import _KERNELS
 from .kde import kde_bandwidth, kde_bandwidth_mv, lscv, lscv_grad, lscv_mv, lscv_score
 from .nw import loocv_mse, loocv_mse_grad, loocv_mse_score, nw_bandwidth
 
 __all__ = [
+    "_KERNELS",
     "kde_bandwidth",
     "kde_bandwidth_mv",
-    "nw_bandwidth",
-    "lscv",
-    "lscv_grad",
-    "lscv_score",
-    "lscv_mv",
     "loocv_mse",
     "loocv_mse_grad",
     "loocv_mse_score",
-    "_KERNELS",
+    "lscv",
+    "lscv_grad",
+    "lscv_mv",
+    "lscv_score",
+    "nw_bandwidth",
 ]
-__version__ = "0.3.0"
+__version__ = "0.4.0"

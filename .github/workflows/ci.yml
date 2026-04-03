@@ -28,5 +28,11 @@ jobs:
       - name: Type check with mypy
         run: uv run mypy hbw/
 
+      - name: Check docstrings with pydoclint
+        run: uv run pydoclint hbw/
+
+      - name: Check dead code with vulture
+        run: uv run vulture hbw/
+
       - name: Run tests
         run: uv run pytest

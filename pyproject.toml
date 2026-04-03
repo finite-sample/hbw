@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "hbw"
-version = "0.3.1"
+version = "0.4.0"
 description = "Fast kernel bandwidth selection via analytic Hessian Newton optimization"
 readme = "README.md"
 license = "MIT"
@@ -28,10 +28,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Typing :: Typed",
 ]
-dependencies = ["numpy>=1.26"]
+dependencies = ["numpy>=1.26", "numba>=0.59"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4"]
+dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4", "pydoclint>=0.5", "vulture>=2.11"]
 docs = ["sphinx>=7.0", "furo", "sphinx-copybutton", "sphinx-autodoc-typehints"]
 
 [project.urls]
@@ -49,17 +49,44 @@ only-include = ["hbw", "README.md", "LICENSE", "pyproject.toml"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["*.ipynb", "ms/"]
+extend-exclude = ["*.ipynb", "ms/", "tests/", "benchmarks/"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]
-ignore = ["E501", "N806"]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "N",
+    "W",
+    "D",
+    "ANN",
+    "RUF",
+]
+ignore = ["E501", "N806", "D100", "D104", "ANN401"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.mypy]
 python_version = "3.12"
 warn_unused_configs = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
+
+[tool.pydoclint]
+style = "numpy"
+check-return-types = true
+check-yield-types = true
+arg-type-hints-in-docstring = false
+arg-type-hints-in-signature = true
+skip-checking-raises = true
+
+[tool.vulture]
+paths = ["hbw"]
+min_confidence = 80
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

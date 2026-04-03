@@ -1,7 +1,5 @@
 """Kernel functions and their derivatives for bandwidth selection."""
 
-from __future__ import annotations
-
 from math import sqrt
 from typing import Any
 
@@ -171,12 +169,7 @@ def _biweight_conv_p(u: NDArray[Any]) -> NDArray[Any]:
     absu = np.abs(u)
     mask = absu <= 2
     uu = u * u
-    poly = (
-        15
-        * u
-        * (-3 * absu**7 + 56 * absu**5 - 560 * absu**3 + 896 * uu - 512)
-        / 3584
-    )
+    poly = 15 * u * (-3 * absu**7 + 56 * absu**5 - 560 * absu**3 + 896 * uu - 512) / 3584
     return _poly_mask(u, mask, poly)
 
 
@@ -188,13 +181,7 @@ def _biweight_conv_pp(u: NDArray[Any]) -> NDArray[Any]:
     absu = np.abs(u)
     mask = absu <= 2
     uu = u * u
-    poly = (
-        -45 * absu**7 / 448
-        + 45 * absu**5 / 32
-        - 75 * absu**3 / 8
-        + 45 * uu / 4
-        - 15 / 7
-    )
+    poly = -45 * absu**7 / 448 + 45 * absu**5 / 32 - 75 * absu**3 / 8 + 45 * uu / 4 - 15 / 7
     return _poly_mask(u, mask, poly)
 
 
@@ -310,7 +297,9 @@ def _cosine_conv(u: NDArray[Any]) -> NDArray[Any]:
     """
     absu = np.abs(u)
     mask = absu <= 2
-    poly = np.pi / 32 * (np.pi * (2 - absu) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
+    poly = (
+        np.pi / 32 * (np.pi * (2 - absu) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
+    )
     return _poly_mask(u, mask, poly)
 
 
@@ -321,7 +310,7 @@ def _cosine_conv_p(u: NDArray[Any]) -> NDArray[Any]:
     """
     absu = np.abs(u)
     mask = absu <= 2
-    poly = np.sign(u) * (-np.pi**3 / 64) * np.sin(np.pi * absu / 2) * (2 - absu)
+    poly = np.sign(u) * (-(np.pi**3) / 64) * np.sin(np.pi * absu / 2) * (2 - absu)
     return _poly_mask(u, mask, poly)
 
 
@@ -332,7 +321,11 @@ def _cosine_conv_pp(u: NDArray[Any]) -> NDArray[Any]:
     """
     absu = np.abs(u)
     mask = absu <= 2
-    poly = np.pi**3 / 128 * (np.pi * (absu - 2) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
+    poly = (
+        np.pi**3
+        / 128
+        * (np.pi * (absu - 2) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
+    )
     return _poly_mask(u, mask, poly)
 
 

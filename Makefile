@@ -6,6 +6,8 @@ test:
 lint:
 	uv run ruff check .
 	uv run mypy hbw/
+	uv run pydoclint hbw/
+	uv run vulture hbw/
 
 docs:
 	uv run sphinx-build docs docs/_build/html

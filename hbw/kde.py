@@ -1,7 +1,5 @@
 """KDE bandwidth selection via LSCV minimization."""
 
-from __future__ import annotations
-
 import warnings
 from typing import Any
 
@@ -9,6 +7,21 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from ._kernels import _KERNELS
+from ._numba_kde import (
+    lscv_mv_numba_gauss,
+    lscv_numba_biweight,
+    lscv_numba_cosine,
+    lscv_numba_epan,
+    lscv_numba_gauss,
+    lscv_numba_triweight,
+    lscv_numba_unif,
+    lscv_score_numba_biweight,
+    lscv_score_numba_cosine,
+    lscv_score_numba_epan,
+    lscv_score_numba_gauss,
+    lscv_score_numba_triweight,
+    lscv_score_numba_unif,
+)
 from ._optim import _newton_armijo, _silverman_h, _subsample
 
 
@@ -127,6 +140,40 @@ def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float
     return score, grad, float(hess)
 
 
+def _lscv_numba_wrapper(x: NDArray[Any], h: float, kernel: str) -> tuple[float, float, float]:
+    """Wrap numba functions to match numpy API signature."""
+    if kernel == "gauss":
+        return lscv_numba_gauss(x, h)
+    elif kernel == "epan":
+        return lscv_numba_epan(x, h)
+    elif kernel == "unif":
+        return lscv_numba_unif(x, h)
+    elif kernel == "biweight":
+        return lscv_numba_biweight(x, h)
+    elif kernel == "triweight":
+        return lscv_numba_triweight(x, h)
+    elif kernel == "cosine":
+        return lscv_numba_cosine(x, h)
+    raise ValueError(f"Numba not available for kernel {kernel!r}")
+
+
+def _lscv_score_numba_wrapper(x: NDArray[Any], h: float, kernel: str) -> float:
+    """Wrap numba score functions to match numpy API signature."""
+    if kernel == "gauss":
+        return lscv_score_numba_gauss(x, h)
+    elif kernel == "epan":
+        return lscv_score_numba_epan(x, h)
+    elif kernel == "unif":
+        return lscv_score_numba_unif(x, h)
+    elif kernel == "biweight":
+        return lscv_score_numba_biweight(x, h)
+    elif kernel == "triweight":
+        return lscv_score_numba_triweight(x, h)
+    elif kernel == "cosine":
+        return lscv_score_numba_cosine(x, h)
+    raise ValueError(f"Numba not available for kernel {kernel!r}")
+
+
 def kde_bandwidth(
     x: ArrayLike,
     kernel: str = "gauss",
@@ -175,7 +222,12 @@ def kde_bandwidth(
         h0 = _silverman_h(x_opt, kernel)
 
     return _newton_armijo(
-        lscv, x_opt, None, h0, kernel, score_only=lscv_score, grad_only=lscv_grad
+        _lscv_numba_wrapper,
+        x_opt,
+        None,
+        h0,
+        kernel,
+        score_only=_lscv_score_numba_wrapper,
     )
 
 
@@ -296,6 +348,35 @@ def _newton_armijo_mv(
     return h
 
 
+def _newton_armijo_mv_numba(
+    data: NDArray[Any],
+    h0: float,
+    tol: float = 1e-5,
+    max_iter: int = 15,
+) -> float:
+    """Run Newton-Armijo optimization for multivariate bandwidth selection with Numba."""
+    h = h0
+    for _ in range(max_iter):
+        f, g, hess = lscv_mv_numba_gauss(data, h)
+        if abs(g) < tol:
+            break
+        step = (
+            -g / hess
+            if hess > 0 and np.isfinite(hess)
+            else (0.25 * h * np.sign(-g) if g != 0 else 0.0)
+        )
+        if abs(step) / h < 1e-3:
+            break
+        for _ in range(10):
+            h_new = max(h + step, 1e-6)
+            f_new = lscv_mv_numba_gauss(data, h_new)[0]
+            if f_new < f:
+                h = h_new
+                break
+            step *= 0.5
+    return h
+
+
 def kde_bandwidth_mv(
     data: ArrayLike,
     kernel: str = "gauss",
@@ -369,4 +450,6 @@ def kde_bandwidth_mv(
     if h0 is None:
         h0 = _silverman_h_mv(data_opt)
 
+    if kernel == "gauss":
+        return _newton_armijo_mv_numba(data_opt, h0)
     return _newton_armijo_mv(data_opt, h0, kernel)

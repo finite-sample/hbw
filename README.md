@@ -124,29 +124,29 @@ For full mathematical details, see the [paper](ms/).
 
 ## Results
 
-Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with significant speedups:
+Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with significant speedups. All implementations use Numba with parallel execution.
 
-**KDE (n=500):**
-| Kernel | Newton | Grid (50 pts) | Speedup |
-|--------|--------|---------------|---------|
-| Gaussian | 54 ms | 70 ms | 1.3× |
-| Epanechnikov | 124 ms | 213 ms | 1.7× |
-| Biweight | 205 ms | 294 ms | 1.4× |
-| Triweight | 354 ms | 497 ms | 1.4× |
-| Cosine | 150 ms | 239 ms | 1.6× |
+**KDE (n=5000):**
+| Kernel | Grid (50 pts) | Newton | Speedup |
+|--------|---------------|--------|---------|
+| Gaussian | 2614 ms | 502 ms | 5.2× |
+| Epanechnikov | 920 ms | 582 ms | 1.6× |
+| Biweight | 1111 ms | 754 ms | 1.5× |
+| Triweight | 1113 ms | 301 ms | 3.7× |
+| Cosine | 1591 ms | 1790 ms | 0.9× |
 
-**NW Regression (n=500):**
-| Kernel | Newton | Grid (50 pts) | Speedup |
-|--------|--------|---------------|---------|
-| Gaussian | 16 ms | 39 ms | 2.5× |
-| Epanechnikov | 21 ms | 52 ms | 2.5× |
-| Biweight | 20 ms | 53 ms | 2.6× |
-| Triweight | 21 ms | 82 ms | 3.9× |
-| Cosine | 11 ms | 75 ms | 6.9× |
+**NW Regression (n=5000):**
+| Kernel | Grid (50 pts) | Newton | Speedup |
+|--------|---------------|--------|---------|
+| Gaussian | 1663 ms | 586 ms | 2.8× |
+| Epanechnikov | 574 ms | 214 ms | 2.7× |
+| Biweight | 580 ms | 159 ms | 3.7× |
+| Triweight | 579 ms | 95 ms | 6.1× |
+| Cosine | 716 ms | 105 ms | 6.8× |
 
-**Bootstrap use case**: For 200 bootstrap resamples at n=500, Newton saves significant computation time.
+**Bootstrap use case**: For 200 bootstrap resamples at n=1000, Newton saves significant computation time.
 
-Tested across sample sizes (100-500), noise levels, four DGPs (bimodal, unimodal, skewed, heavy-tailed), and all six kernels. See [ms/](ms/) for full details.
+Tested across sample sizes, noise levels, four DGPs (bimodal, unimodal, skewed, heavy-tailed), and all six kernels. See [ms/](ms/) for full details.
 
 ## Citation
 

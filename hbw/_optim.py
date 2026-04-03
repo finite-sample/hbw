@@ -1,7 +1,5 @@
 """Newton-Armijo optimizer for bandwidth selection."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 from typing import Any
 
@@ -45,7 +43,6 @@ def _newton_armijo(
     tol: float = 1e-5,
     max_iter: int = 12,
     score_only: Callable[..., float] | None = None,
-    grad_only: Callable[..., tuple[float, float]] | None = None,
 ) -> float:
     """Run Newton-Armijo optimization for bandwidth selection.
 
@@ -68,9 +65,11 @@ def _newton_armijo(
     score_only
         Optional score-only function for efficient backtracking.
         If None, uses objective(...)[0].
-    grad_only
-        Optional gradient-only function returning (score, gradient).
-        Currently unused but kept for API compatibility.
+
+    Returns
+    -------
+    float
+        Optimal bandwidth.
     """
 
     def _eval_score(h: float) -> float:

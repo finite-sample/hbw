@@ -625,10 +625,120 @@ def loocv_score_numba_cosine(x: NDArray, y: NDArray, h: float) -> float:
     return local_loss.sum() / n
 
 
+@numba.njit(fastmath=True, parallel=True)
+def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
+    """Compute multivariate LOOCV-MSE for Gaussian product kernel using fused loop."""
+    n, d = data.shape
+    inv_h = 1.0 / h
+    h_d = h**d
+    n_threads = numba.get_num_threads()
+
+    local_loss = np.zeros(n_threads)
+    local_grad = np.zeros(n_threads)
+    local_hess = np.zeros(n_threads)
+
+    for j in numba.prange(n):
+        tid = numba.get_thread_id()
+        num = 0.0
+        den = 0.0
+        num_p = 0.0
+        den_p = 0.0
+        num_pp = 0.0
+        den_pp = 0.0
+
+        for i in range(n):
+            if i == j:
+                continue
+
+            prod_k = 1.0
+            sum_ratio = 0.0
+            sum_d2 = 0.0
+
+            for dim in range(d):
+                u = (data[j, dim] - data[i, dim]) * inv_h
+                u2 = u * u
+                k = math.exp(-0.5 * u2) / _SQRT_2PI
+                prod_k *= k
+
+                if k > 0:
+                    r = -u
+                    sum_ratio += u * r
+                    sum_d2 += 2.0 * u * r + u2 * (u2 - 1.0 - r * r)
+
+            w = prod_k / h_d
+            wp = -(w / h) * (d + sum_ratio)
+            wpp = (w / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_d2)
+
+            yi = y[i]
+            num += w * yi
+            den += w
+            num_p += wp * yi
+            den_p += wp
+            num_pp += wpp * yi
+            den_pp += wpp
+
+        if den > 0:
+            m = num / den
+            den2 = den * den
+
+            mp = (num_p * den - num * den_p) / den2
+
+            mpp_num = (num_pp * den - num * den_pp) * den - 2.0 * (
+                num_p * den - num * den_p
+            ) * den_p
+            mpp = mpp_num / (den2 * den)
+
+            resid = y[j] - m
+            local_loss[tid] += resid * resid
+            local_grad[tid] += -2.0 * resid * mp
+            local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+
+    inv_n = 1.0 / n
+    return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
+
+
+@numba.njit(fastmath=True, parallel=True)
+def loocv_score_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> float:
+    """Compute multivariate LOOCV-MSE score only (for Armijo backtracking) - Gaussian kernel."""
+    n, d = data.shape
+    inv_h = 1.0 / h
+    h_d = h**d
+    n_threads = numba.get_num_threads()
+
+    local_loss = np.zeros(n_threads)
+
+    for j in numba.prange(n):
+        tid = numba.get_thread_id()
+        num = 0.0
+        den = 0.0
+
+        for i in range(n):
+            if i == j:
+                continue
+
+            prod_k = 1.0
+            for dim in range(d):
+                u = (data[j, dim] - data[i, dim]) * inv_h
+                k = math.exp(-0.5 * u * u) / _SQRT_2PI
+                prod_k *= k
+
+            w = prod_k / h_d
+            num += w * y[i]
+            den += w
+
+        if den > 0:
+            m = num / den
+            resid = y[j] - m
+            local_loss[tid] += resid * resid
+
+    return local_loss.sum() / n
+
+
 def warmup() -> None:
     """Trigger JIT compilation with small arrays."""
     x = np.array([0.0, 1.0, 2.0])
     y = np.array([0.0, 1.0, 0.5])
+    X_mv = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
     loocv_numba_gauss(x, y, 1.0)
     loocv_score_numba_gauss(x, y, 1.0)
     loocv_numba_epan(x, y, 1.0)
@@ -641,3 +751,5 @@ def warmup() -> None:
     loocv_score_numba_triweight(x, y, 1.0)
     loocv_numba_cosine(x, y, 1.0)
     loocv_score_numba_cosine(x, y, 1.0)
+    loocv_mv_numba_gauss(X_mv, y, 1.0)
+    loocv_score_mv_numba_gauss(X_mv, y, 1.0)

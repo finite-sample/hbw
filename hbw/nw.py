@@ -1,5 +1,6 @@
 """NW bandwidth selection via LOOCV-MSE minimization."""
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -7,12 +8,14 @@ from numpy.typing import ArrayLike, NDArray
 
 from ._kernels import _KERNELS, _SQRT_2PI
 from ._numba_nw import (
+    loocv_mv_numba_gauss,
     loocv_numba_biweight,
     loocv_numba_cosine,
     loocv_numba_epan,
     loocv_numba_gauss,
     loocv_numba_triweight,
     loocv_numba_unif,
+    loocv_score_mv_numba_gauss,
     loocv_score_numba_biweight,
     loocv_score_numba_cosine,
     loocv_score_numba_epan,
@@ -425,3 +428,258 @@ def nw_bandwidth(
         kernel,
         score_only=_loocv_score_numba_wrapper,
     )
+
+
+def loocv_mse_mv(
+    data: NDArray[Any],
+    y: NDArray[Any],
+    h: float,
+    kernel: str = "gauss",
+) -> tuple[float, float, float]:
+    """Compute LOOCV MSE, gradient, and Hessian for multivariate NW bandwidth selection.
+
+    Uses product kernel with isotropic bandwidth h across all dimensions.
+
+    Parameters
+    ----------
+    data
+        Predictor values, shape (n, d) where n is samples and d is dimension.
+    y
+        Response values (1D array of length n).
+    h
+        Bandwidth (scalar, applied to all dimensions).
+    kernel
+        Kernel name: "gauss".
+
+    Returns
+    -------
+    tuple[float, float, float]
+        (loss, gradient, hessian) of the LOOCV MSE objective.
+    """
+    K, Kp, Kpp, _, _, _ = _KERNELS[kernel]
+    n, d = data.shape
+
+    U = (data[:, None, :] - data[None, :, :]) / h
+
+    K_vals = K(U)
+    K_prod = np.prod(K_vals, axis=2) / h**d
+
+    np.fill_diagonal(K_prod, 0.0)
+    num = K_prod @ y
+    den = K_prod.sum(axis=1)
+    den_safe = np.where(den == 0, np.finfo(float).eps, den)
+    m = num / den_safe
+
+    Kp_vals = Kp(U)
+    sum_ratio = np.zeros((n, n))
+    for k in range(d):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
+        sum_ratio += U[:, :, k] * ratio
+
+    w1 = -(K_prod / h) * (d + sum_ratio)
+    np.fill_diagonal(w1, 0.0)
+    num1 = w1 @ y
+    den1 = w1.sum(axis=1)
+    m1 = (num1 * den_safe - num * den1) / (den_safe**2)
+
+    Kpp_vals = Kpp(U)
+    sum_d2 = np.zeros((n, n))
+    for k in range(d):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
+            r2 = np.where(K_vals[:, :, k] != 0, Kpp_vals[:, :, k] / K_vals[:, :, k], 0)
+        sum_d2 += 2.0 * U[:, :, k] * r + U[:, :, k] ** 2 * (r2 - r * r)
+
+    w2 = (K_prod / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_d2)
+    np.fill_diagonal(w2, 0.0)
+    num2 = w2 @ y
+    den2 = w2.sum(axis=1)
+    m2 = (num2 * den_safe - num * den2) / (den_safe**2) - 2 * m1 * den1 / den_safe
+
+    resid = y - m
+    loss = float(np.mean(resid**2))
+    grad = float((-2.0 / n) * np.sum(resid * m1))
+    hess = float((2.0 / n) * np.sum(m1 * m1 - resid * m2))
+    return loss, grad, hess
+
+
+def _scott_h_mv_nw(data: NDArray[Any]) -> float:
+    """Scott's rule of thumb for multivariate NW initial bandwidth."""
+    n, d = data.shape
+    std_avg = float(np.mean(np.std(data, axis=0, ddof=1)))
+    return std_avg * n ** (-1.0 / (d + 4))
+
+
+def _newton_armijo_mv_nw(
+    data: NDArray[Any],
+    y: NDArray[Any],
+    h0: float,
+    kernel: str,
+    tol: float = 1e-5,
+    max_iter: int = 15,
+) -> float:
+    """Run Newton-Armijo optimization for multivariate NW bandwidth selection."""
+    h = h0
+    f_prev = float("inf")
+    for _ in range(max_iter):
+        f, g, hess = loocv_mse_mv(data, y, h, kernel)
+        if abs(g) < tol:
+            break
+        if abs(f - f_prev) < 1e-8 * abs(f):
+            break
+        f_prev = f
+
+        if hess > 0 and np.isfinite(hess):
+            step = -g / hess
+            step = np.clip(step, -0.5 * h, 0.5 * h)
+        else:
+            step = 0.1 * h * np.sign(-g) if g != 0 else 0.0
+        if abs(step) / h < 1e-3:
+            break
+
+        h_new = max(h + step, 0.01 * h0)
+        f_new = loocv_mse_mv(data, y, h_new, kernel)[0]
+
+        if f_new < f:
+            h = h_new
+            continue
+
+        for _ in range(4):
+            step *= 0.5
+            h_new = max(h + step, 0.01 * h0)
+            f_new = loocv_mse_mv(data, y, h_new, kernel)[0]
+            if f_new < f:
+                h = h_new
+                break
+    return h
+
+
+def _newton_armijo_mv_nw_numba(
+    data: NDArray[Any],
+    y: NDArray[Any],
+    h0: float,
+    tol: float = 1e-5,
+    max_iter: int = 15,
+) -> float:
+    """Run Newton-Armijo optimization for multivariate NW bandwidth selection with Numba."""
+    h = h0
+    f_prev = float("inf")
+    for _ in range(max_iter):
+        f, g, hess = loocv_mv_numba_gauss(data, y, h)
+        if abs(g) < tol:
+            break
+        if abs(f - f_prev) < 1e-8 * abs(f):
+            break
+        f_prev = f
+
+        if hess > 0 and np.isfinite(hess):
+            step = -g / hess
+            step = np.clip(step, -0.5 * h, 0.5 * h)
+        else:
+            step = 0.1 * h * np.sign(-g) if g != 0 else 0.0
+        if abs(step) / h < 1e-3:
+            break
+
+        h_new = max(h + step, 0.01 * h0)
+        f_new = loocv_score_mv_numba_gauss(data, y, h_new)
+
+        if f_new < f:
+            h = h_new
+            continue
+
+        for _ in range(4):
+            step *= 0.5
+            h_new = max(h + step, 0.01 * h0)
+            f_new = loocv_score_mv_numba_gauss(data, y, h_new)
+            if f_new < f:
+                h = h_new
+                break
+    return h
+
+
+def nw_bandwidth_mv(
+    data: ArrayLike,
+    y: ArrayLike,
+    kernel: str = "gauss",
+    h0: float | None = None,
+    max_n: int | None = 3000,
+    seed: int | None = None,
+    standardize: bool = True,
+) -> float:
+    """Select optimal multivariate NW bandwidth via Newton-Armijo on LOOCV-MSE.
+
+    Uses product kernel with isotropic bandwidth across all dimensions.
+    For best results, predictors should be standardized (each dimension scaled
+    to similar variance).
+
+    Parameters
+    ----------
+    data
+        Predictor values, shape (n, d) where n is samples and d is dimension.
+    y
+        Response values (1D array of length n).
+    kernel
+        Kernel function: "gauss", "epan", or "unif".
+    h0
+        Initial bandwidth guess. If None, uses Scott's rule.
+    max_n
+        Maximum sample size for optimization. If n > max_n, a random
+        subsample is used. Set to None to disable subsampling.
+    seed
+        Random seed for reproducible subsampling.
+    standardize
+        If True, standardize each predictor dimension to unit variance before
+        bandwidth selection.
+
+    Returns
+    -------
+    float
+        Optimal bandwidth that minimizes the LOOCV MSE criterion.
+        If standardize=True, this is the bandwidth for the standardized data.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> data = np.random.randn(500, 2)
+    >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
+    >>> h = nw_bandwidth_mv(data, y)
+    """
+    data_arr = np.asarray(data, dtype=float)
+    y_arr = np.asarray(y, dtype=float).ravel()
+    if data_arr.ndim == 1:
+        data_arr = data_arr.reshape(-1, 1)
+    if data_arr.ndim != 2:
+        raise ValueError(f"data must be 2D array, got shape {data_arr.shape}")
+    if len(data_arr) != len(y_arr):
+        raise ValueError(f"data and y must have same length, got {len(data_arr)} and {len(y_arr)}")
+
+    n, d = data_arr.shape
+    if kernel not in _KERNELS:
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+    if d > 4:
+        warnings.warn(
+            f"Dimension d={d} is high; NW regression becomes unreliable due to curse of dimensionality",
+            stacklevel=2,
+        )
+
+    rng = np.random.default_rng(seed)
+    if max_n is not None and n > max_n:
+        idx = rng.choice(n, size=max_n, replace=False)
+        data_opt = data_arr[idx]
+        y_opt = y_arr[idx]
+    else:
+        data_opt = data_arr
+        y_opt = y_arr
+
+    if standardize:
+        stds = np.std(data_opt, axis=0, ddof=1)
+        stds = np.where(stds > 0, stds, 1.0)
+        data_opt = data_opt / stds
+
+    if h0 is None:
+        h0 = _scott_h_mv_nw(data_opt)
+
+    if kernel == "gauss":
+        return _newton_armijo_mv_nw_numba(data_opt, y_opt, h0)
+    return _newton_armijo_mv_nw(data_opt, y_opt, h0, kernel)

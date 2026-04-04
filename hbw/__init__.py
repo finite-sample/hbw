@@ -11,7 +11,14 @@ converges in 6-12 evaluations vs 50-100 for grid search.
 
 from ._kernels import _KERNELS
 from .kde import kde_bandwidth, kde_bandwidth_mv, lscv, lscv_grad, lscv_mv, lscv_score
-from .nw import loocv_mse, loocv_mse_grad, loocv_mse_score, nw_bandwidth
+from .nw import (
+    loocv_mse,
+    loocv_mse_grad,
+    loocv_mse_mv,
+    loocv_mse_score,
+    nw_bandwidth,
+    nw_bandwidth_mv,
+)
 
 __all__ = [
     "_KERNELS",
@@ -19,11 +26,13 @@ __all__ = [
     "kde_bandwidth_mv",
     "loocv_mse",
     "loocv_mse_grad",
+    "loocv_mse_mv",
     "loocv_mse_score",
     "lscv",
     "lscv_grad",
     "lscv_mv",
     "lscv_score",
     "nw_bandwidth",
+    "nw_bandwidth_mv",
 ]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

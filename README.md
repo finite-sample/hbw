@@ -6,7 +6,7 @@
 [![Downloads](https://static.pepy.tech/badge/hbw)](https://pepy.tech/project/hbw)
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://finite-sample.github.io/hbw)
 
-Fast kernel bandwidth selection via analytic Hessian Newton optimization.
+Fast kernel bandwidth selection via analytic Hessian Newton optimization. **16× faster for KDE, 25-49× faster for NW regression** at n≥10,000.
 
 ## Installation
 
@@ -39,8 +39,24 @@ h = kde_bandwidth(x_large, max_n=5000, seed=42)  # Uses 5000 random points
 from hbw import kde_bandwidth_mv
 X = np.random.randn(500, 2)
 h = kde_bandwidth_mv(X)
-print(f"Optimal 2D bandwidth: {h:.4f}")
+print(f"Optimal 2D KDE bandwidth: {h:.4f}")
+
+# Multivariate NW regression (2D predictors)
+from hbw import nw_bandwidth_mv
+X = np.random.randn(500, 2)
+y = np.sin(X[:, 0]) + 0.5 * X[:, 1] + 0.3 * np.random.randn(500)
+h = nw_bandwidth_mv(X, y)
+print(f"Optimal 2D NW bandwidth: {h:.4f}")
 ```
+
+## When to Use Data-Driven Bandwidth Selection
+
+Silverman's rule-of-thumb assumes your data is unimodal and roughly Gaussian. Use `hbw` when:
+
+- **Multimodal distributions**: Silverman oversmooths multiple peaks into a single blob. LSCV adapts to reveal distinct modes.
+- **Non-Gaussian data**: Heavy tails or skewness cause Silverman to choose suboptimal bandwidths. Cross-validation optimizes for your actual data shape.
+- **Regression (Nadaraya-Watson)**: Silverman's rule is designed for density estimation, not the x-y relationship in regression. NW bandwidth selection requires data-driven LOOCV.
+- **Bootstrap/uncertainty quantification**: Each resample has different structure; rule-of-thumb bandwidths don't adapt. CV selection per resample is critical—and with Newton optimization, now practical.
 
 ## API Reference
 
@@ -106,11 +122,33 @@ Compute LSCV score, gradient, and Hessian for multivariate KDE.
 
 **Returns:** `tuple[float, float, float]` - (score, gradient, hessian)
 
+### `nw_bandwidth_mv(data, y, kernel="gauss", h0=None, max_n=3000, seed=None, standardize=True)`
+
+Select optimal multivariate NW bandwidth via LOOCV-MSE minimization with product kernel.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `data` | array-like | Predictor values, shape (n, d) |
+| `y` | array-like | Response values |
+| `kernel` | str | `"gauss"`, `"epan"`, `"unif"`, `"biweight"`, `"triweight"`, or `"cosine"` |
+| `h0` | float | Initial bandwidth (default: Scott's rule) |
+| `max_n` | int | Subsample size for large data |
+| `seed` | int | Random seed |
+| `standardize` | bool | Standardize each predictor dimension to unit variance |
+
+**Returns:** `float` - optimal isotropic bandwidth
+
+### `loocv_mse_mv(data, y, h, kernel="gauss")`
+
+Compute LOOCV-MSE, gradient, and Hessian for multivariate NW regression.
+
+**Returns:** `tuple[float, float, float]` - (loss, gradient, hessian)
+
 ## How It Works
 
 **Problem:** Cross-validation bandwidth selection requires O(n²) per evaluation. Grid search needs 50-100 evaluations.
 
-**Solution:** We derive closed-form gradients *and* Hessians for the LSCV (KDE) and LOOCV-MSE (NW) objectives. This enables Newton optimization that converges in 6-12 evaluations—same optimum, 4-10x fewer evaluations.
+**Solution:** We derive closed-form gradients *and* Hessians for the LSCV (KDE) and LOOCV-MSE (NW) objectives. Newton optimization converges in 6-12 iterations, but the key insight is that each iteration shares O(n²) pairwise computations across objective, gradient, and Hessian—yielding speedups that grow with sample size (16× for KDE, 25-49× for NW at n≥10,000).
 
 **Supported kernels:**
 - Gaussian: `K(u) = exp(-u²/2) / √(2π)`
@@ -124,37 +162,34 @@ For full mathematical details, see the [paper](ms/).
 
 ## Results
 
-Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with significant speedups. All implementations use Numba with parallel execution.
+Newton-Armijo with analytic Hessian achieves identical accuracy to grid search with speedups that grow with sample size. All implementations use Numba with parallel execution.
 
-**KDE (n=5000):**
-| Kernel | Grid (50 pts) | Newton | Speedup |
-|--------|---------------|--------|---------|
-| Gaussian | 2614 ms | 502 ms | 5.2× |
-| Epanechnikov | 920 ms | 582 ms | 1.6× |
-| Biweight | 1111 ms | 754 ms | 1.5× |
-| Triweight | 1113 ms | 301 ms | 3.7× |
-| Cosine | 1591 ms | 1790 ms | 0.9× |
+**Speedup vs. Grid Search (Gaussian kernel):**
+| n | KDE Speedup | NW Speedup |
+|---|-------------|------------|
+| 100 | 0.3× | 1.1× |
+| 500 | 4.2× | 7.8× |
+| 2,000 | 7.9× | 28× |
+| 5,000 | 8.7× | 26× |
+| 10,000 | 16× | 25× |
+| 20,000 | — | 49× |
 
-**NW Regression (n=5000):**
-| Kernel | Grid (50 pts) | Newton | Speedup |
-|--------|---------------|--------|---------|
-| Gaussian | 1663 ms | 586 ms | 2.8× |
-| Epanechnikov | 574 ms | 214 ms | 2.7× |
-| Biweight | 580 ms | 159 ms | 3.7× |
-| Triweight | 579 ms | 95 ms | 6.1× |
-| Cosine | 716 ms | 105 ms | 6.8× |
-
-**Bootstrap use case**: For 200 bootstrap resamples at n=1000, Newton saves significant computation time.
+**Bootstrap use case**: 200 resamples at n=10,000 takes ~100 minutes with grid search vs. ~4 minutes with Newton.
 
 Tested across sample sizes, noise levels, four DGPs (bimodal, unimodal, skewed, heavy-tailed), and all six kernels. See [ms/](ms/) for full details.
+
+## Limitations
+
+- **Multivariate KDE/NW**: Isotropic bandwidth only (same h in all dimensions)
+- **Not supported**: Anisotropic bandwidth (dimension-specific bandwidths), local/adaptive bandwidth selection
 
 ## Citation
 
 ```bibtex
-@misc{hbw2024,
+@misc{hbw2025,
   author = {Sood, Gaurav},
   title = {Analytic-Hessian Bandwidth Selection for Kernel Density Estimation and Nadaraya-Watson Regression},
-  year = {2024},
+  year = {2025},
   url = {https://github.com/finite-sample/hbw}
 }
 ```

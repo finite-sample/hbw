@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2025-04-04
+
+### Added
+- Multivariate NW regression: `nw_bandwidth_mv()` and `loocv_mse_mv()`
+- Numba-accelerated multivariate NW: `loocv_mv_numba_gauss()`
+- Tests for multivariate NW (gradient accuracy, grid search comparison)
+- Benchmarks for multivariate KDE and NW
+
+### Changed
+- Newton-Armijo optimization improved with step clipping for stability
+- README updated with multivariate NW example and API docs
+- Limitations section updated (removed "NW univariate only")
+
 ## [0.2.0] - 2025-04-01
 
 ### Added

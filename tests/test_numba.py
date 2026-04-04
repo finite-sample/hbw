@@ -364,3 +364,29 @@ class TestNumbaNW:
         for kernel in ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]:
             h = nw_bandwidth(x, y, kernel=kernel, seed=123)
             assert h > 0, f"kernel {kernel} failed"
+
+    def test_loocv_mv_gauss_matches_numpy(self):
+        from hbw._numba_nw import loocv_mv_numba_gauss
+        from hbw.nw import loocv_mse_mv
+
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal((100, 2))
+        y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.1 * rng.standard_normal(100)
+        h = 0.5
+
+        loss_np, grad_np, hess_np = loocv_mse_mv(data, y, h, kernel="gauss")
+        loss_nb, grad_nb, hess_nb = loocv_mv_numba_gauss(data, y, h)
+
+        assert abs(loss_np - loss_nb) < 1e-10
+        assert abs(grad_np - grad_nb) < 1e-10
+        assert abs(hess_np - hess_nb) < 1e-10
+
+    def test_nw_bandwidth_mv_runs(self):
+        from hbw import nw_bandwidth_mv
+
+        rng = np.random.default_rng(42)
+        data = rng.standard_normal((200, 2))
+        y = np.sin(data[:, 0]) + 0.1 * rng.standard_normal(200)
+
+        h = nw_bandwidth_mv(data, y, kernel="gauss", seed=123)
+        assert h > 0

@@ -9,6 +9,8 @@ of the cross-validation objectives, enabling Newton optimization that
 converges in 6-12 evaluations vs 50-100 for grid search.
 """
 
+from importlib.metadata import version
+
 from ._kernels import _KERNELS
 from .kde import (
     kde_bandwidth,
@@ -50,4 +52,4 @@ __all__ = [
     "nw_predict",
     "nw_predict_mv",
 ]
-__version__ = "0.6.0"
+__version__ = version("hbw")

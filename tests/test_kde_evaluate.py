@@ -17,7 +17,7 @@ class TestKDEEvaluate:
 
         assert density.shape == (100,)
         assert np.all(density >= 0)
-        assert np.trapz(density, x_grid) > 0.9
+        assert np.trapezoid(density, x_grid) > 0.9
 
     def test_kde_evaluate_normal_shape(self):
         rng = np.random.default_rng(42)
@@ -55,7 +55,7 @@ class TestKDEEvaluate:
         x_grid = np.linspace(-6, 6, 500)
         density = kde_evaluate(x, x_grid, h)
 
-        integral = np.trapz(density, x_grid)
+        integral = np.trapezoid(density, x_grid)
         assert 0.95 < integral < 1.05
 
     def test_kde_evaluate_same_points(self):

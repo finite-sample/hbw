@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Typing :: Typed",
 ]
-dependencies = ["numpy>=1.26", "numba>=0.59"]
+dependencies = ["numpy>=2.4", "numba>=0.59"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4", "pydoclint>=0.5", "vulture>=2.11"]

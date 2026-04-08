@@ -88,6 +88,10 @@ skip-checking-raises = true
 paths = ["hbw"]
 min_confidence = 80
 
+[tool.deptry]
+extend_exclude = ["examples", "ms"]
+ignore = ["DEP002"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

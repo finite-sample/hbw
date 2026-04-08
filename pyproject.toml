@@ -78,7 +78,7 @@ ignore_missing_imports = true
 
 [tool.pydoclint]
 style = "numpy"
-check-return-types = true
+check-return-types = false
 check-yield-types = true
 arg-type-hints-in-docstring = false
 arg-type-hints-in-signature = true

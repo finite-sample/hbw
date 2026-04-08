@@ -398,8 +398,7 @@ def kde_evaluate(
 
     Returns
     -------
-    NDArray
-        Estimated density values at x_eval locations.
+    Estimated density values at x_eval locations.
 
     Examples
     --------
@@ -453,8 +452,7 @@ def kde_evaluate_mv(
 
     Returns
     -------
-    NDArray
-        Estimated density values at data_eval locations.
+    Estimated density values at data_eval locations.
 
     Examples
     --------

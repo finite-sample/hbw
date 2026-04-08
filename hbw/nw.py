@@ -622,8 +622,7 @@ def nw_predict(
 
     Returns
     -------
-    NDArray
-        Predicted values at x_test locations.
+    Predicted values at x_test locations.
 
     Examples
     --------
@@ -690,8 +689,7 @@ def nw_predict_mv(
 
     Returns
     -------
-    NDArray
-        Predicted values at data_test locations.
+    Predicted values at data_test locations.
 
     Examples
     --------

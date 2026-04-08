@@ -377,6 +377,132 @@ def _newton_armijo_mv_numba(
     return h
 
 
+def kde_evaluate(
+    x_train: ArrayLike,
+    x_eval: ArrayLike,
+    h: float,
+    kernel: str = "gauss",
+) -> NDArray[Any]:
+    """Evaluate kernel density estimate at given points.
+
+    Parameters
+    ----------
+    x_train
+        Training sample data (1D array-like).
+    x_eval
+        Points at which to evaluate the density (1D array-like).
+    h
+        Bandwidth (obtained from kde_bandwidth).
+    kernel
+        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+
+    Returns
+    -------
+    NDArray
+        Estimated density values at x_eval locations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> x = np.random.randn(1000)
+    >>> h = kde_bandwidth(x)
+    >>> x_grid = np.linspace(-3, 3, 100)
+    >>> density = kde_evaluate(x, x_grid, h)
+
+    Notes
+    -----
+    This function returns point estimates only. No confidence intervals or
+    standard errors are provided. Key assumptions: smooth underlying density,
+    IID observations, continuous density (no point masses).
+
+    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+    """
+    x_tr = np.asarray(x_train, dtype=float).ravel()
+    x_ev = np.asarray(x_eval, dtype=float).ravel()
+
+    if kernel not in _KERNELS:
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+
+    K, _, _, _, _, _ = _KERNELS[kernel]
+    n = len(x_tr)
+
+    u = (x_ev[:, None] - x_tr[None, :]) / h
+    density = K(u).sum(axis=1) / (n * h)
+
+    return density
+
+
+def kde_evaluate_mv(
+    data_train: ArrayLike,
+    data_eval: ArrayLike,
+    h: float,
+    kernel: str = "gauss",
+) -> NDArray[Any]:
+    """Evaluate multivariate kernel density estimate at given points using product kernel.
+
+    Parameters
+    ----------
+    data_train
+        Training sample data, shape (n_train, d).
+    data_eval
+        Points at which to evaluate the density, shape (n_eval, d).
+    h
+        Bandwidth (scalar, applied to all dimensions; obtained from kde_bandwidth_mv).
+    kernel
+        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+
+    Returns
+    -------
+    NDArray
+        Estimated density values at data_eval locations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> data = np.random.randn(500, 2)
+    >>> h = kde_bandwidth_mv(data)
+    >>> data_grid = np.column_stack([np.linspace(-3, 3, 50), np.linspace(-3, 3, 50)])
+    >>> density = kde_evaluate_mv(data, data_grid, h)
+
+    Notes
+    -----
+    This function returns point estimates only. No confidence intervals or
+    standard errors are provided. Key assumptions: smooth underlying density,
+    IID observations, continuous density (no point masses). Uses product kernel
+    with isotropic bandwidth; data should be standardized for best results.
+
+    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+    """
+    data_tr = np.asarray(data_train, dtype=float)
+    data_ev = np.asarray(data_eval, dtype=float)
+
+    if data_tr.ndim == 1:
+        data_tr = data_tr.reshape(-1, 1)
+    if data_ev.ndim == 1:
+        data_ev = data_ev.reshape(-1, 1)
+
+    if data_tr.ndim != 2:
+        raise ValueError(f"data_train must be 2D array, got shape {data_tr.shape}")
+    if data_ev.ndim != 2:
+        raise ValueError(f"data_eval must be 2D array, got shape {data_ev.shape}")
+    if data_tr.shape[1] != data_ev.shape[1]:
+        raise ValueError(f"data_train and data_eval must have same number of dimensions, got {data_tr.shape[1]} and {data_ev.shape[1]}")
+    if kernel not in _KERNELS:
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+
+    K, _, _, _, _, _ = _KERNELS[kernel]
+    n = len(data_tr)
+    d = data_tr.shape[1]
+
+    U = (data_ev[:, None, :] - data_tr[None, :, :]) / h
+    K_vals = K(U)
+    K_prod = np.prod(K_vals, axis=2)
+
+    density = K_prod.sum(axis=1) / (n * h**d)
+
+    return density
+
+
 def kde_bandwidth_mv(
     data: ArrayLike,
     kernel: str = "gauss",

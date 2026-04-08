@@ -598,6 +598,156 @@ def _newton_armijo_mv_nw_numba(
     return h
 
 
+def nw_predict(
+    x_train: ArrayLike,
+    y_train: ArrayLike,
+    x_test: ArrayLike,
+    h: float,
+    kernel: str = "gauss",
+) -> NDArray[Any]:
+    """Nadaraya-Watson kernel regression predictions.
+
+    Parameters
+    ----------
+    x_train
+        Training predictor values (1D array-like).
+    y_train
+        Training response values (1D array-like).
+    x_test
+        Test predictor values where predictions are desired (1D array-like).
+    h
+        Bandwidth (obtained from nw_bandwidth).
+    kernel
+        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+
+    Returns
+    -------
+    NDArray
+        Predicted values at x_test locations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> x = np.linspace(-2, 2, 200)
+    >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
+    >>> h = nw_bandwidth(x, y)
+    >>> y_pred = nw_predict(x, y, x, h)  # in-sample predictions
+
+    Notes
+    -----
+    This function returns point estimates only. No confidence intervals or
+    standard errors are provided. Key assumptions: smooth regression function,
+    IID observations, design density bounded away from zero in region of interest.
+
+    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+    """
+    x_tr = np.asarray(x_train, dtype=float).ravel()
+    y_tr = np.asarray(y_train, dtype=float).ravel()
+    x_te = np.asarray(x_test, dtype=float).ravel()
+
+    if len(x_tr) != len(y_tr):
+        raise ValueError(f"x_train and y_train must have same length, got {len(x_tr)} and {len(y_tr)}")
+    if kernel not in _KERNELS:
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+
+    K, _, _, _, _, _ = _KERNELS[kernel]
+
+    u = (x_te[:, None] - x_tr[None, :]) / h
+    w = K(u)
+
+    w_sum = w.sum(axis=1)
+    w_sum_safe = np.where(w_sum == 0, np.finfo(float).eps, w_sum)
+    y_pred = (w @ y_tr) / w_sum_safe
+
+    zero_weight_mask = w_sum == 0
+    if np.any(zero_weight_mask):
+        y_pred[zero_weight_mask] = np.mean(y_tr)
+
+    return y_pred
+
+
+def nw_predict_mv(
+    data_train: ArrayLike,
+    y_train: ArrayLike,
+    data_test: ArrayLike,
+    h: float,
+    kernel: str = "gauss",
+) -> NDArray[Any]:
+    """Multivariate Nadaraya-Watson kernel regression predictions using product kernel.
+
+    Parameters
+    ----------
+    data_train
+        Training predictor values, shape (n_train, d).
+    y_train
+        Training response values (1D array of length n_train).
+    data_test
+        Test predictor values where predictions are desired, shape (n_test, d).
+    h
+        Bandwidth (scalar, applied to all dimensions; obtained from nw_bandwidth_mv).
+    kernel
+        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+
+    Returns
+    -------
+    NDArray
+        Predicted values at data_test locations.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> data = np.random.randn(500, 2)
+    >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
+    >>> h = nw_bandwidth_mv(data, y)
+    >>> y_pred = nw_predict_mv(data, y, data, h)  # in-sample predictions
+
+    Notes
+    -----
+    This function returns point estimates only. No confidence intervals or
+    standard errors are provided. Key assumptions: smooth regression function,
+    IID observations, design density bounded away from zero in region of interest.
+    Uses product kernel with isotropic bandwidth; data should be standardized
+    for best results.
+
+    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+    """
+    data_tr = np.asarray(data_train, dtype=float)
+    y_tr = np.asarray(y_train, dtype=float).ravel()
+    data_te = np.asarray(data_test, dtype=float)
+
+    if data_tr.ndim == 1:
+        data_tr = data_tr.reshape(-1, 1)
+    if data_te.ndim == 1:
+        data_te = data_te.reshape(-1, 1)
+
+    if data_tr.ndim != 2:
+        raise ValueError(f"data_train must be 2D array, got shape {data_tr.shape}")
+    if data_te.ndim != 2:
+        raise ValueError(f"data_test must be 2D array, got shape {data_te.shape}")
+    if len(data_tr) != len(y_tr):
+        raise ValueError(f"data_train and y_train must have same length, got {len(data_tr)} and {len(y_tr)}")
+    if data_tr.shape[1] != data_te.shape[1]:
+        raise ValueError(f"data_train and data_test must have same number of dimensions, got {data_tr.shape[1]} and {data_te.shape[1]}")
+    if kernel not in _KERNELS:
+        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+
+    K, _, _, _, _, _ = _KERNELS[kernel]
+
+    U = (data_te[:, None, :] - data_tr[None, :, :]) / h
+    K_vals = K(U)
+    w = np.prod(K_vals, axis=2)
+
+    w_sum = w.sum(axis=1)
+    w_sum_safe = np.where(w_sum == 0, np.finfo(float).eps, w_sum)
+    y_pred = (w @ y_tr) / w_sum_safe
+
+    zero_weight_mask = w_sum == 0
+    if np.any(zero_weight_mask):
+        y_pred[zero_weight_mask] = np.mean(y_tr)
+
+    return y_pred
+
+
 def nw_bandwidth_mv(
     data: ArrayLike,
     y: ArrayLike,

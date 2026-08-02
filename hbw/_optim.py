@@ -35,7 +35,7 @@ def _subsample(
     return x_sub, y_sub
 
 
-def _grad_converged(g: float, h: float, f: float, tol: float) -> bool:
+def _grad_converged(g: float, h: float, f: float, hess: float, tol: float) -> bool:
     """Test gradient convergence on a scale-free footing.
 
     An absolute test ``|g| < tol`` is not usable here because the criteria are
@@ -54,6 +54,8 @@ def _grad_converged(g: float, h: float, f: float, tol: float) -> bool:
         Current bandwidth.
     f
         Value of the criterion at ``h``.
+    hess
+        Hessian of the criterion at ``h``.
     tol
         Relative tolerance.
 
@@ -66,11 +68,19 @@ def _grad_converged(g: float, h: float, f: float, tol: float) -> bool:
     if not np.isfinite(scale):
         return False
     if scale == 0.0:
-        # A criterion passing through zero used to make this return False
-        # forever, so the iteration ran to its cap with nothing left to gain.
-        # Fall back to an absolute test at that single point.
-        return abs(g) * h < tol
+        if g == 0.0:
+            return True
+        if hess > 0.0 and np.isfinite(hess):
+            return abs(g / hess) < tol * h
+        return False
     return abs(g) * h < tol * scale
+
+
+def _bandwidth_floor(h_reference: float, ratio: float = 1e-6) -> float:
+    """Return a positive floor that scales with the bandwidth problem."""
+    if not np.isfinite(h_reference) or h_reference <= 0.0:
+        raise ValueError(f"initial bandwidth must be finite and positive, got {h_reference!r}")
+    return max(ratio * h_reference, np.nextafter(0.0, 1.0))
 
 
 def _newton_step(g: float, hess: float, h: float) -> float:
@@ -225,11 +235,12 @@ def _newton_armijo(
 
     def _run_from(h_start: float) -> tuple[float, float]:
         h = h_start
+        h_floor = _bandwidth_floor(h_start)
         f, g, H = _eval_full(h)
         f_prev = float("inf")
 
         for _ in range(max_iter):
-            if _grad_converged(g, h, f, tol):
+            if _grad_converged(g, h, f, H, tol):
                 break
             if abs(f - f_prev) < 1e-8 * abs(f):
                 break
@@ -239,7 +250,7 @@ def _newton_armijo(
             if step == 0.0:
                 break
 
-            accepted = _line_search(_eval_score, h, step, f, 1e-6)
+            accepted = _line_search(_eval_score, h, step, f, h_floor)
             if accepted is None:
                 break
             h = accepted[0]

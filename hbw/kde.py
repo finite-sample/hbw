@@ -23,6 +23,7 @@ from ._numba_kde import (
     lscv_score_numba_unif,
 )
 from ._optim import (
+    _bandwidth_floor,
     _grad_converged,
     _line_search,
     _newton_armijo,
@@ -336,14 +337,15 @@ def _newton_armijo_mv(
 ) -> float:
     """Run Newton-Armijo optimization for multivariate bandwidth selection."""
     h = h0
+    h_floor = _bandwidth_floor(h0)
     for _ in range(max_iter):
         f, g, hess = lscv_mv(data, h, kernel)
-        if _grad_converged(g, h, f, tol):
+        if _grad_converged(g, h, f, hess, tol):
             break
         step = _newton_step(g, hess, h)
         if step == 0.0:
             break
-        accepted = _line_search(lambda hh: lscv_mv(data, hh, kernel)[0], h, step, f, 1e-6)
+        accepted = _line_search(lambda hh: lscv_mv(data, hh, kernel)[0], h, step, f, h_floor)
         if accepted is None:
             break
         h = accepted[0]
@@ -358,14 +360,15 @@ def _newton_armijo_mv_numba(
 ) -> float:
     """Run Newton-Armijo optimization for multivariate bandwidth selection with Numba."""
     h = h0
+    h_floor = _bandwidth_floor(h0)
     for _ in range(max_iter):
         f, g, hess = lscv_mv_numba_gauss(data, h)
-        if _grad_converged(g, h, f, tol):
+        if _grad_converged(g, h, f, hess, tol):
             break
         step = _newton_step(g, hess, h)
         if step == 0.0:
             break
-        accepted = _line_search(lambda hh: lscv_mv_numba_gauss(data, hh)[0], h, step, f, 1e-6)
+        accepted = _line_search(lambda hh: lscv_mv_numba_gauss(data, hh)[0], h, step, f, h_floor)
         if accepted is None:
             break
         h = accepted[0]

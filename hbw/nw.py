@@ -528,7 +528,7 @@ def _newton_armijo_mv_nw(
     f_prev = float("inf")
     for _ in range(max_iter):
         f, g, hess = loocv_mse_mv(data, y, h, kernel)
-        if _grad_converged(g, h, f, tol):
+        if _grad_converged(g, h, f, hess, tol):
             break
         if abs(f - f_prev) < 1e-8 * abs(f):
             break
@@ -558,7 +558,7 @@ def _newton_armijo_mv_nw_numba(
     f_prev = float("inf")
     for _ in range(max_iter):
         f, g, hess = loocv_mv_numba_gauss(data, y, h)
-        if _grad_converged(g, h, f, tol):
+        if _grad_converged(g, h, f, hess, tol):
             break
         if abs(f - f_prev) < 1e-8 * abs(f):
             break

@@ -4,8 +4,11 @@ import math
 import random
 
 import numpy as np
+from scipy.optimize import minimize_scalar
 
-from hbw import kde_bandwidth, lscv
+from hbw import kde_bandwidth, lscv, nw_bandwidth
+from hbw.kde import lscv_score
+from hbw.nw import loocv_mse_score
 
 
 def mixture_sample(n: int, rng: random.Random) -> np.ndarray:
@@ -30,6 +33,57 @@ def test_newton_matches_grid_search() -> None:
 
         h_newton = kde_bandwidth(x, kernel=kernel, h0=h_grid * 1.1, max_n=None)
         assert math.isclose(h_newton, h_grid, rel_tol=0.1, abs_tol=0.05)
+
+
+def test_gaussian_selectors_match_scipy_bounded_minimization() -> None:
+    """Gaussian selectors must match an independent derivative-free optimizer."""
+    rng = np.random.default_rng(2026)
+    x = rng.normal(size=300)
+    y = np.sin(x) + 0.2 * rng.normal(size=300)
+    scale = np.std(x, ddof=1)
+    bounds = (math.log(0.01 * scale), math.log(3.0 * scale))
+
+    kde_reference = minimize_scalar(
+        lambda log_h: lscv_score(x, math.exp(log_h)),
+        bounds=bounds,
+        method="bounded",
+        options={"xatol": 1e-11},
+    )
+    assert kde_reference.success
+    h_kde = kde_bandwidth(x, max_n=None)
+    assert math.isclose(h_kde, math.exp(kde_reference.x), rel_tol=1e-3)
+    assert lscv_score(x, h_kde) <= kde_reference.fun + 1e-9
+
+    nw_reference = minimize_scalar(
+        lambda log_h: loocv_mse_score(x, y, math.exp(log_h)),
+        bounds=bounds,
+        method="bounded",
+        options={"xatol": 1e-11},
+    )
+    assert nw_reference.success
+    h_nw = nw_bandwidth(x, y, max_n=None)
+    assert math.isclose(h_nw, math.exp(nw_reference.x), rel_tol=1e-3)
+    assert loocv_mse_score(x, y, h_nw) <= nw_reference.fun + 1e-9
+
+
+def test_selectors_match_dense_log_grid_objectives() -> None:
+    """Optimized scores must agree with a slow dense-grid oracle across kernels."""
+    rng = np.random.default_rng(31)
+    x = np.concatenate((rng.normal(-1.0, 0.45, 40), rng.normal(1.0, 0.7, 40)))
+    y = np.sin(x) + 0.2 * rng.normal(size=len(x))
+    grid = np.geomspace(0.02, 3.0, 800)
+
+    for kernel in ALL_KERNELS:
+        h = kde_bandwidth(x, kernel=kernel, max_n=None)
+        selected = lscv_score(x, h, kernel)
+        grid_min = min(lscv_score(x, candidate, kernel) for candidate in grid)
+        assert selected - grid_min <= 1e-3 * abs(grid_min), kernel
+
+    for kernel in ("gauss", "epan", "biweight", "triweight", "cosine"):
+        h = nw_bandwidth(x, y, kernel=kernel, max_n=None)
+        selected = loocv_mse_score(x, y, h, kernel)
+        grid_min = min(loocv_mse_score(x, y, candidate, kernel) for candidate in grid)
+        assert selected - grid_min <= 1e-3 * grid_min, kernel
 
 
 def test_kde_bandwidth_basic() -> None:
@@ -74,7 +128,7 @@ def test_kde_bandwidth_is_scale_equivariant() -> None:
     x = np.random.default_rng(11).normal(size=400)
     for kernel in ALL_KERNELS:
         h1 = kde_bandwidth(x, kernel=kernel)
-        for c in (100.0, 1000.0, 1e5):
+        for c in (1e-6, 1e-4, 1e-2, 100.0, 1000.0, 1e5):
             hc = kde_bandwidth(c * x, kernel=kernel)
             assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
 
@@ -88,7 +142,7 @@ def test_nw_bandwidth_is_scale_equivariant() -> None:
     y = np.sin(x) + 0.2 * rng.normal(size=400)
     for kernel in ALL_KERNELS:
         h1 = nw_bandwidth(x, y, kernel=kernel)
-        for c in (100.0, 1000.0, 1e5):
+        for c in (1e-6, 1e-4, 1e-2, 100.0, 1000.0, 1e5):
             hc = nw_bandwidth(c * x, y, kernel=kernel)
             assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
 
@@ -114,12 +168,43 @@ def test_grad_converged_handles_a_criterion_passing_through_zero():
     _grad_converged scaled the gradient test by abs(f) and returned False
     outright when that scale was zero, so an iterate sitting at f == 0 with a
     negligible gradient could never converge and burned the whole iteration
-    budget. It now falls back to an absolute test at that single point.
+    budget. It now tests the relative Newton step at that single point.
     """
     from hbw._optim import _grad_converged
 
-    assert _grad_converged(g=1e-12, h=1.0, f=0.0, tol=1e-5)
-    assert not _grad_converged(g=1.0, h=1.0, f=0.0, tol=1e-5)
+    assert _grad_converged(g=1e-12, h=1.0, f=0.0, hess=1.0, tol=1e-5)
+    assert not _grad_converged(g=1.0, h=1.0, f=0.0, hess=1.0, tol=1e-5)
+    assert _grad_converged(g=0.0, h=1.0, f=0.0, hess=0.0, tol=1e-5)
+    assert not _grad_converged(g=1e-12, h=1.0, f=0.0, hess=-1.0, tol=1e-5)
     # A non-zero scale is unaffected.
-    assert _grad_converged(g=1e-12, h=1.0, f=2.0, tol=1e-5)
-    assert not _grad_converged(g=1e-4, h=1.0, f=1.0, tol=1e-5)
+    assert _grad_converged(g=1e-12, h=1.0, f=2.0, hess=1.0, tol=1e-5)
+    assert not _grad_converged(g=1e-4, h=1.0, f=1.0, hess=1.0, tol=1e-5)
+
+
+def test_grad_converged_at_zero_is_scale_equivariant() -> None:
+    """Equivalent LSCV states must make the same convergence decision at f=0."""
+    from hbw._optim import _grad_converged
+
+    for g, expected in ((1e-6, True), (1e-4, False)):
+        base = _grad_converged(g=g, h=1.0, f=0.0, hess=1.0, tol=1e-5)
+        assert base is expected
+        for c in (1e-6, 1e6):
+            scaled = _grad_converged(
+                g=g / c**2,
+                h=c,
+                f=0.0,
+                hess=1.0 / c**3,
+                tol=1e-5,
+            )
+            assert scaled is expected
+
+
+def test_kde_bandwidth_mv_is_scale_equivariant_without_standardization() -> None:
+    """The multivariate optimizer floor must scale with the input units."""
+    from hbw import kde_bandwidth_mv
+
+    data = np.random.default_rng(11).normal(size=(200, 2))
+    h1 = kde_bandwidth_mv(data, standardize=False)
+    for c in (1e-6, 1e6):
+        hc = kde_bandwidth_mv(c * data, standardize=False)
+        assert math.isclose(hc / c, h1, rel_tol=1e-6)

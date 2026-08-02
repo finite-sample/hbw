@@ -208,7 +208,7 @@ def _cosine_all(u: float) -> tuple[float, float, float, float, float, float]:
         sin_half = math.sin(_PI_2 * absu)
         k2 = _PI / 32.0 * (_PI * (2.0 - absu) * cos_half + 2.0 * sin_half)
         sign_u = 1.0 if u >= 0 else -1.0
-        k2p = sign_u * (-_PI**3 / 64.0) * sin_half * (2.0 - absu)
+        k2p = sign_u * (-(_PI**3) / 64.0) * sin_half * (2.0 - absu)
         k2pp = _PI**3 / 128.0 * (_PI * (absu - 2.0) * cos_half + 2.0 * sin_half)
     else:
         k2 = 0.0
@@ -235,12 +235,12 @@ def lscv_numba_gauss(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -256,12 +256,7 @@ def lscv_numba_gauss(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -314,12 +309,12 @@ def lscv_numba_epan(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -335,12 +330,7 @@ def lscv_numba_epan(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -393,12 +383,12 @@ def lscv_numba_unif(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -414,12 +404,7 @@ def lscv_numba_unif(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -471,12 +456,12 @@ def lscv_numba_biweight(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -492,12 +477,7 @@ def lscv_numba_biweight(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -559,12 +539,12 @@ def lscv_numba_triweight(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -580,12 +560,7 @@ def lscv_numba_triweight(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -649,12 +624,12 @@ def lscv_numba_cosine(x: NDArray, h: float) -> tuple[float, float, float]:
 
             local_sums[tid, 0] += k2
             local_sums[tid, 1] += k2 + u * k2p
-            local_sums[tid, 2] += 2.0 * k2p + u * k2pp
+            local_sums[tid, 2] += 2.0 * k2 + 4.0 * u * k2p + u * u * k2pp
 
             if i != j:
                 local_sums[tid, 3] += k
                 local_sums[tid, 4] += k + u * kp
-                local_sums[tid, 5] += 2.0 * kp + u * kpp
+                local_sums[tid, 5] += 2.0 * k + 4.0 * u * kp + u * u * kpp
 
     sum_K2 = local_sums[:, 0].sum()
     sum_SF = local_sums[:, 1].sum()
@@ -670,12 +645,7 @@ def lscv_numba_cosine(x: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
     grad = -sum_SF / (n2 * h2) + 2.0 * sum_SK / (nn1 * h2)
-    hess = (
-        2.0 * sum_SF / (n2 * h3)
-        - sum_SF2 / (n2 * h2)
-        - 4.0 * sum_SK / (nn1 * h3)
-        + 2.0 * sum_SK2 / (nn1 * h2)
-    )
+    hess = sum_SF2 / (n2 * h3) - 2.0 * sum_SK2 / (nn1 * h3)
 
     return score, grad, hess
 
@@ -751,24 +721,24 @@ def lscv_mv_numba_gauss(data: NDArray, h: float) -> tuple[float, float, float]:
                 if k > 0:
                     r = kp / k
                     sum_ratio_k += u * r
-                    sum_d2_k += 2.0 * u * r + u * u * kpp / k
+                    sum_d2_k += u * u * (kpp / k - r * r)
 
                 if k2 > 0:
                     r2 = k2p / k2
                     sum_ratio_k2 += u * r2
-                    sum_d2_k2 += 2.0 * u * r2 + u * u * k2pp / k2
+                    sum_d2_k2 += u * u * (k2pp / k2 - r2 * r2)
 
             local_sums[tid, 0] += prod_k2
             local_sums[tid, 1] += prod_k2 * (d + sum_ratio_k2)
             local_sums[tid, 2] += prod_k2 * (
-                (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k2 + sum_d2_k2
+                (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k2 + sum_ratio_k2 * sum_ratio_k2 + sum_d2_k2
             )
 
             if i != j:
                 local_sums[tid, 3] += prod_k
                 local_sums[tid, 4] += prod_k * (d + sum_ratio_k)
                 local_sums[tid, 5] += prod_k * (
-                    (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k + sum_d2_k
+                    (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k + sum_ratio_k * sum_ratio_k + sum_d2_k
                 )
 
     sum_K2 = local_sums[:, 0].sum()
@@ -786,12 +756,7 @@ def lscv_mv_numba_gauss(data: NDArray, h: float) -> tuple[float, float, float]:
 
     score = sum_K2 / (n2 * hd) - 2.0 * sum_K / (nn1 * hd)
     grad = -sum_SF / (n2 * hd1) + 2.0 * sum_SK / (nn1 * hd1)
-    hess = (
-        (d + 1) * sum_SF / (n2 * hd2)
-        - sum_SF2 / (n2 * hd1)
-        - 2.0 * (d + 1) * sum_SK / (nn1 * hd2)
-        + 2.0 * sum_SK2 / (nn1 * hd1)
-    )
+    hess = sum_SF2 / (n2 * hd2) - 2.0 * sum_SK2 / (nn1 * hd2)
 
     return score, grad, hess
 

@@ -43,7 +43,7 @@ def loocv_numba_gauss(x: NDArray, y: NDArray, h: float) -> tuple[float, float, f
             exp_val = math.exp(-0.5 * u2)
             w = exp_val / (_SQRT_2PI * h)
             wp = w * (u2 - 1.0) / h
-            wpp = w * (u2 * u2 - 3.0 * u2 + 1.0) / h2
+            wpp = w * (u2 * u2 - 5.0 * u2 + 2.0) / h2
 
             yi = y[i]
             num += w * yi
@@ -53,6 +53,9 @@ def loocv_numba_gauss(x: NDArray, y: NDArray, h: float) -> tuple[float, float, f
             num_pp += wpp * yi
             den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -68,6 +71,8 @@ def loocv_numba_gauss(x: NDArray, y: NDArray, h: float) -> tuple[float, float, f
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -98,10 +103,12 @@ def loocv_score_numba_gauss(x: NDArray, y: NDArray, h: float) -> float:
             num += w * y[i]
             den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -152,6 +159,9 @@ def loocv_numba_epan(x: NDArray, y: NDArray, h: float) -> tuple[float, float, fl
                 num_pp += wpp * yi
                 den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -167,6 +177,8 @@ def loocv_numba_epan(x: NDArray, y: NDArray, h: float) -> tuple[float, float, fl
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -197,10 +209,12 @@ def loocv_score_numba_epan(x: NDArray, y: NDArray, h: float) -> float:
                 num += w * y[i]
                 den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -247,6 +261,9 @@ def loocv_numba_unif(x: NDArray, y: NDArray, h: float) -> tuple[float, float, fl
                 num_pp += wpp * yi
                 den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -262,6 +279,8 @@ def loocv_numba_unif(x: NDArray, y: NDArray, h: float) -> tuple[float, float, fl
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -291,10 +310,12 @@ def loocv_score_numba_unif(x: NDArray, y: NDArray, h: float) -> float:
                 num += w * y[i]
                 den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -337,7 +358,7 @@ def loocv_numba_biweight(x: NDArray, y: NDArray, h: float) -> tuple[float, float
 
                 wp = (15.0 / 16.0) * one_minus_u2 * (5.0 * u2 - 1.0) / h2
 
-                wpp = (15.0 / 8.0) * (1.0 - 12.0 * u2 + 20.0 * u2 * u2 - 5.0 * u2 * u2 * u2) / h3
+                wpp = (15.0 / 8.0) * (1.0 - 12.0 * u2 + 15.0 * u2 * u2) / h3
 
                 yi = y[i]
                 num += w * yi
@@ -347,6 +368,9 @@ def loocv_numba_biweight(x: NDArray, y: NDArray, h: float) -> tuple[float, float
                 num_pp += wpp * yi
                 den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -362,6 +386,8 @@ def loocv_numba_biweight(x: NDArray, y: NDArray, h: float) -> tuple[float, float
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -394,10 +420,12 @@ def loocv_score_numba_biweight(x: NDArray, y: NDArray, h: float) -> float:
                 num += w * y[i]
                 den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -441,12 +469,7 @@ def loocv_numba_triweight(x: NDArray, y: NDArray, h: float) -> tuple[float, floa
 
                 wp = (35.0 / 32.0) * one_minus_u2_sq * (7.0 * u2 - 1.0) / h2
 
-                wpp = (
-                    (35.0 / 16.0)
-                    * one_minus_u2
-                    * (1.0 - 20.0 * u2 + 35.0 * u2 * u2)
-                    / h3
-                )
+                wpp = (35.0 / 16.0) * (1.0 - 18.0 * u2 + 45.0 * u2 * u2 - 28.0 * u2 * u2 * u2) / h3
 
                 yi = y[i]
                 num += w * yi
@@ -456,6 +479,9 @@ def loocv_numba_triweight(x: NDArray, y: NDArray, h: float) -> tuple[float, floa
                 num_pp += wpp * yi
                 den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -471,6 +497,8 @@ def loocv_numba_triweight(x: NDArray, y: NDArray, h: float) -> tuple[float, floa
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -503,10 +531,12 @@ def loocv_score_numba_triweight(x: NDArray, y: NDArray, h: float) -> float:
                 num += w * y[i]
                 den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -548,20 +578,10 @@ def loocv_numba_cosine(x: NDArray, y: NDArray, h: float) -> tuple[float, float, 
                 k = _PI_4 * cos_val
                 w = k / h
 
-                wp = (
-                    _PI_4
-                    * ((_PI * _PI * u2 / 4.0 - 1.0) * cos_val - (_PI_2 * u) * sin_val)
-                    / h2
-                )
+                wp = _PI_4 * (-cos_val + (_PI_2 * u) * sin_val) / h2
 
                 wpp = (
-                    _PI_4
-                    * (
-                        (2.0 - 3.0 * _PI * _PI * u2 / 2.0 + _PI**4 * u2 * u2 / 16.0)
-                        * cos_val
-                        + (3.0 * _PI_2 * u - _PI**3 * u2 * u / 8.0) * sin_val
-                    )
-                    / h3
+                    _PI_4 * ((2.0 - _PI * _PI * u2 / 4.0) * cos_val - 2.0 * _PI * u * sin_val) / h3
                 )
 
                 yi = y[i]
@@ -572,6 +592,9 @@ def loocv_numba_cosine(x: NDArray, y: NDArray, h: float) -> tuple[float, float, 
                 num_pp += wpp * yi
                 den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -587,6 +610,8 @@ def loocv_numba_cosine(x: NDArray, y: NDArray, h: float) -> tuple[float, float, 
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -617,10 +642,12 @@ def loocv_score_numba_cosine(x: NDArray, y: NDArray, h: float) -> float:
                 num += w * y[i]
                 den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 
@@ -663,11 +690,13 @@ def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, fl
                 if k > 0:
                     r = -u
                     sum_ratio += u * r
-                    sum_d2 += 2.0 * u * r + u2 * (u2 - 1.0 - r * r)
+                    sum_d2 += u2 * (u2 - 1.0 - r * r)
 
             w = prod_k / h_d
             wp = -(w / h) * (d + sum_ratio)
-            wpp = (w / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_d2)
+            wpp = (w / (h * h)) * (
+                (d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_ratio * sum_ratio + sum_d2
+            )
 
             yi = y[i]
             num += w * yi
@@ -677,6 +706,9 @@ def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, fl
             num_pp += wpp * yi
             den_pp += wpp
 
+        # The loss must be accumulated even when every weight underflowed
+        # (den == 0, m = 0), or h -> 0 reports a loss of 0 and looks optimal.
+        # The derivatives of m are undefined there, so they contribute nothing.
         if den > 0:
             m = num / den
             den2 = den * den
@@ -692,6 +724,8 @@ def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, fl
             local_loss[tid] += resid * resid
             local_grad[tid] += -2.0 * resid * mp
             local_hess[tid] += 2.0 * (mp * mp - resid * mpp)
+        else:
+            local_loss[tid] += y[j] * y[j]
 
     inv_n = 1.0 / n
     return local_loss.sum() * inv_n, local_grad.sum() * inv_n, local_hess.sum() * inv_n
@@ -726,10 +760,12 @@ def loocv_score_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> float:
             num += w * y[i]
             den += w
 
-        if den > 0:
-            m = num / den
-            resid = y[j] - m
-            local_loss[tid] += resid * resid
+        # den == 0 means every weight underflowed; the NumPy reference then
+        # yields m = 0. Skipping the point instead would report a loss of 0
+        # and make h -> 0 look like a global minimum.
+        m = num / den if den > 0 else 0.0
+        resid = y[j] - m
+        local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
 

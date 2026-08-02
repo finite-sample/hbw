@@ -22,7 +22,14 @@ from ._numba_kde import (
     lscv_score_numba_triweight,
     lscv_score_numba_unif,
 )
-from ._optim import _newton_armijo, _silverman_h, _subsample
+from ._optim import (
+    _grad_converged,
+    _line_search,
+    _newton_armijo,
+    _newton_step,
+    _silverman_h,
+    _subsample,
+)
 
 
 def lscv_score(x: NDArray[Any], h: float, kernel: str = "gauss") -> float:
@@ -132,11 +139,11 @@ def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float
     S_K = S_K_matrix.sum() - np.trace(S_K_matrix)
     grad = float(-S_F / (n**2 * h**2) + 2 * S_K / (n * (n - 1) * h**2))
 
-    S_F2 = (2 * K2p_u + u * K2pp_u).sum()
-    S_K2_matrix = 2 * Kp_u + u * Kpp_u
+    # d2/dh2 [ h^-1 f(delta/h) ] = h^-3 ( 2f + 4u f' + u^2 f'' ), with u = delta/h.
+    S_F2 = (2 * K2_u + 4 * u * K2p_u + u * u * K2pp_u).sum()
+    S_K2_matrix = 2 * K_u + 4 * u * Kp_u + u * u * Kpp_u
     S_K2 = S_K2_matrix.sum() - np.trace(S_K2_matrix)
-    hess = 2 * S_F / (n**2 * h**3) - S_F2 / (n**2 * h**2)
-    hess += -4 * S_K / (n * (n - 1) * h**3) + 2 * S_K2 / (n * (n - 1) * h**2)
+    hess = S_F2 / (n**2 * h**3) - 2 * S_K2 / (n * (n - 1) * h**3)
     return score, grad, float(hess)
 
 
@@ -286,27 +293,29 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
     Kpp_vals = Kpp(U)
     K2pp_vals = K2pp(U)
 
+    # With A = prod_k f(U_k) and L = sum_k U_k d/dU_k,
+    # d2/dh2 [ h^-d A ] = h^-(d+2) ( d(d+1) A + (2d+1) LA + L^2 A )
+    #                   = h^-(d+2) A ( d(d+1) + 2(d+1) S + S^2
+    #                                  + sum_k U_k^2 (f''/f - (f'/f)^2) ),
+    # where S = sum_k U_k f'(U_k)/f(U_k).
     d2_K2 = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
             r1 = np.where(K2_vals[:, :, k] != 0, K2p_vals[:, :, k] / K2_vals[:, :, k], 0)
             r2 = np.where(K2_vals[:, :, k] != 0, K2pp_vals[:, :, k] / K2_vals[:, :, k], 0)
-        d2_K2 += 2 * U[:, :, k] * r1 + U[:, :, k] ** 2 * r2
-    S_F2 = (K2_prod * ((d + 1) * d + 2 * (d + 1) * sum_K2_ratio + d2_K2)).sum()
+        d2_K2 += U[:, :, k] ** 2 * (r2 - r1 * r1)
+    S_F2 = (K2_prod * ((d + 1) * d + 2 * (d + 1) * sum_K2_ratio + sum_K2_ratio**2 + d2_K2)).sum()
 
     d2_K = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
             r1 = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
             r2 = np.where(K_vals[:, :, k] != 0, Kpp_vals[:, :, k] / K_vals[:, :, k], 0)
-        d2_K += 2 * U[:, :, k] * r1 + U[:, :, k] ** 2 * r2
-    S_K2_matrix = K_prod * ((d + 1) * d + 2 * (d + 1) * sum_K_ratio + d2_K)
+        d2_K += U[:, :, k] ** 2 * (r2 - r1 * r1)
+    S_K2_matrix = K_prod * ((d + 1) * d + 2 * (d + 1) * sum_K_ratio + sum_K_ratio**2 + d2_K)
     S_K2 = S_K2_matrix.sum() - np.trace(S_K2_matrix)
 
-    hess = (d + 1) * S_F / (n**2 * h ** (d + 2)) - S_F2 / (n**2 * h ** (d + 1))
-    hess += -2 * (d + 1) * S_K / (n * (n - 1) * h ** (d + 2)) + 2 * S_K2 / (
-        n * (n - 1) * h ** (d + 1)
-    )
+    hess = S_F2 / (n**2 * h ** (d + 2)) - 2 * S_K2 / (n * (n - 1) * h ** (d + 2))
 
     return score, grad, float(hess)
 
@@ -329,22 +338,15 @@ def _newton_armijo_mv(
     h = h0
     for _ in range(max_iter):
         f, g, hess = lscv_mv(data, h, kernel)
-        if abs(g) < tol:
+        if _grad_converged(g, h, f, tol):
             break
-        step = (
-            -g / hess
-            if hess > 0 and np.isfinite(hess)
-            else (0.25 * h * np.sign(-g) if g != 0 else 0.0)
-        )
-        if abs(step) / h < 1e-3:
+        step = _newton_step(g, hess, h)
+        if step == 0.0:
             break
-        for _ in range(10):
-            h_new = max(h + step, 1e-6)
-            f_new = lscv_mv(data, h_new, kernel)[0]
-            if f_new < f:
-                h = h_new
-                break
-            step *= 0.5
+        accepted = _line_search(lambda hh: lscv_mv(data, hh, kernel)[0], h, step, f, 1e-6)
+        if accepted is None:
+            break
+        h = accepted[0]
     return h
 
 
@@ -358,22 +360,15 @@ def _newton_armijo_mv_numba(
     h = h0
     for _ in range(max_iter):
         f, g, hess = lscv_mv_numba_gauss(data, h)
-        if abs(g) < tol:
+        if _grad_converged(g, h, f, tol):
             break
-        step = (
-            -g / hess
-            if hess > 0 and np.isfinite(hess)
-            else (0.25 * h * np.sign(-g) if g != 0 else 0.0)
-        )
-        if abs(step) / h < 1e-3:
+        step = _newton_step(g, hess, h)
+        if step == 0.0:
             break
-        for _ in range(10):
-            h_new = max(h + step, 1e-6)
-            f_new = lscv_mv_numba_gauss(data, h_new)[0]
-            if f_new < f:
-                h = h_new
-                break
-            step *= 0.5
+        accepted = _line_search(lambda hh: lscv_mv_numba_gauss(data, hh)[0], h, step, f, 1e-6)
+        if accepted is None:
+            break
+        h = accepted[0]
     return h
 
 
@@ -484,7 +479,9 @@ def kde_evaluate_mv(
     if data_ev.ndim != 2:
         raise ValueError(f"data_eval must be 2D array, got shape {data_ev.shape}")
     if data_tr.shape[1] != data_ev.shape[1]:
-        raise ValueError(f"data_train and data_eval must have same number of dimensions, got {data_tr.shape[1]} and {data_ev.shape[1]}")
+        raise ValueError(
+            f"data_train and data_eval must have same number of dimensions, got {data_tr.shape[1]} and {data_ev.shape[1]}"
+        )
     if kernel not in _KERNELS:
         raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
 

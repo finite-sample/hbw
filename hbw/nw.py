@@ -23,7 +23,14 @@ from ._numba_nw import (
     loocv_score_numba_triweight,
     loocv_score_numba_unif,
 )
-from ._optim import _newton_armijo, _silverman_h, _subsample
+from ._optim import (
+    _grad_converged,
+    _line_search,
+    _newton_armijo,
+    _newton_step,
+    _silverman_h,
+    _subsample,
+)
 
 
 def _nw_weights(
@@ -31,11 +38,15 @@ def _nw_weights(
     h: float,
     kernel: str,
 ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
-    """Return weights w, w', w'' for Nadaraya-Watson."""
+    """Return weights w, w', w'' for Nadaraya-Watson.
+
+    With u = delta/h the weight is w(h) = K(u)/h, so that
+    w' = -(K + u K')/h^2 and w'' = (2K + 4u K' + u^2 K'')/h^3.
+    """
     if kernel == "gauss":
         base = np.exp(-0.5 * u * u) / (h * _SQRT_2PI)
         w1 = base * (u * u - 1) / h
-        w2 = base * (u**4 - 3 * u * u + 1) / (h * h)
+        w2 = base * (u**4 - 5 * u * u + 2) / (h * h)
         return base, w1, w2
     elif kernel == "epan":
         mask = np.abs(u) <= 1
@@ -53,6 +64,8 @@ def _nw_weights(
         w[mask] = 0.5 / h
         w1 = np.zeros_like(u, dtype=float)
         w2 = np.zeros_like(u, dtype=float)
+        w1[mask] = -0.5 / (h * h)
+        w2[mask] = 1.0 / (h**3)
         return w, w1, w2
     elif kernel == "biweight":
         mask = np.abs(u) <= 1
@@ -63,7 +76,7 @@ def _nw_weights(
         one_minus_uu = 1 - uu
         w[mask] = (15 / 16) * one_minus_uu[mask] ** 2 / h
         w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
-        w2[mask] = (15 / 8) * (1 - 12 * uu[mask] + 20 * uu[mask] ** 2 - 5 * uu[mask] ** 3) / (h**3)
+        w2[mask] = (15 / 8) * (1 - 12 * uu[mask] + 15 * uu[mask] ** 2) / (h**3)
         return w, w1, w2
     elif kernel == "triweight":
         mask = np.abs(u) <= 1
@@ -75,7 +88,7 @@ def _nw_weights(
         w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
         w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
         w2[mask] = (
-            (35 / 16) * one_minus_uu[mask] * (1 - 20 * uu[mask] + 35 * uu[mask] ** 2) / (h**3)
+            (35 / 16) * (1 - 18 * uu[mask] + 45 * uu[mask] ** 2 - 28 * uu[mask] ** 3) / (h**3)
         )
         return w, w1, w2
     elif kernel == "cosine":
@@ -88,17 +101,10 @@ def _nw_weights(
         sin_val = np.sin(np.pi * u / 2)
         pi = np.pi
         w[mask] = (pi / 4) * cos_val[mask] / h
-        w1[mask] = (
-            (pi / 4)
-            * ((pi**2 * uu[mask] / 4 - 1) * cos_val[mask] - (pi * u[mask] / 2) * sin_val[mask])
-            / (h * h)
-        )
+        w1[mask] = (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
         w2[mask] = (
             (pi / 4)
-            * (
-                (2 - 3 * pi**2 * uu[mask] / 2 + pi**4 * uu[mask] ** 2 / 16) * cos_val[mask]
-                + (3 * pi * u[mask] / 2 - pi**3 * uu[mask] * u[mask] / 8) * sin_val[mask]
-            )
+            * ((2 - pi**2 * uu[mask] / 4) * cos_val[mask] - 2 * pi * u[mask] * sin_val[mask])
             / (h**3)
         )
         return w, w1, w2
@@ -193,6 +199,7 @@ def _nw_weights_grad(
         w = np.zeros_like(u, dtype=float)
         w[mask] = 0.5 / h
         w1 = np.zeros_like(u, dtype=float)
+        w1[mask] = -0.5 / (h * h)
         return w, w1
     elif kernel == "biweight":
         mask = np.abs(u) <= 1
@@ -216,16 +223,11 @@ def _nw_weights_grad(
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
-        uu = u * u
         cos_val = np.cos(np.pi * u / 2)
         sin_val = np.sin(np.pi * u / 2)
         pi = np.pi
         w[mask] = (pi / 4) * cos_val[mask] / h
-        w1[mask] = (
-            (pi / 4)
-            * ((pi**2 * uu[mask] / 4 - 1) * cos_val[mask] - (pi * u[mask] / 2) * sin_val[mask])
-            / (h * h)
-        )
+        w1[mask] = (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
         return w, w1
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
@@ -489,9 +491,11 @@ def loocv_mse_mv(
         with np.errstate(divide="ignore", invalid="ignore"):
             r = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
             r2 = np.where(K_vals[:, :, k] != 0, Kpp_vals[:, :, k] / K_vals[:, :, k], 0)
-        sum_d2 += 2.0 * U[:, :, k] * r + U[:, :, k] ** 2 * (r2 - r * r)
+        sum_d2 += U[:, :, k] ** 2 * (r2 - r * r)
 
-    w2 = (K_prod / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_d2)
+    # d2/dh2 [h^-d A] = h^-(d+2) A (d(d+1) + 2(d+1)S + S^2
+    #                                + sum_k U_k^2 (K''/K - (K'/K)^2))
+    w2 = (K_prod / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_ratio**2 + sum_d2)
     np.fill_diagonal(w2, 0.0)
     num2 = w2 @ y
     den2 = w2.sum(axis=1)
@@ -524,34 +528,21 @@ def _newton_armijo_mv_nw(
     f_prev = float("inf")
     for _ in range(max_iter):
         f, g, hess = loocv_mse_mv(data, y, h, kernel)
-        if abs(g) < tol:
+        if _grad_converged(g, h, f, tol):
             break
         if abs(f - f_prev) < 1e-8 * abs(f):
             break
         f_prev = f
 
-        if hess > 0 and np.isfinite(hess):
-            step = -g / hess
-            step = np.clip(step, -0.5 * h, 0.5 * h)
-        else:
-            step = 0.1 * h * np.sign(-g) if g != 0 else 0.0
-        if abs(step) / h < 1e-3:
+        step = _newton_step(g, hess, h)
+        if step == 0.0:
             break
-
-        h_new = max(h + step, 0.01 * h0)
-        f_new = loocv_mse_mv(data, y, h_new, kernel)[0]
-
-        if f_new < f:
-            h = h_new
-            continue
-
-        for _ in range(4):
-            step *= 0.5
-            h_new = max(h + step, 0.01 * h0)
-            f_new = loocv_mse_mv(data, y, h_new, kernel)[0]
-            if f_new < f:
-                h = h_new
-                break
+        accepted = _line_search(
+            lambda hh: loocv_mse_mv(data, y, hh, kernel)[0], h, step, f, 0.01 * h0
+        )
+        if accepted is None:
+            break
+        h = accepted[0]
     return h
 
 
@@ -567,34 +558,21 @@ def _newton_armijo_mv_nw_numba(
     f_prev = float("inf")
     for _ in range(max_iter):
         f, g, hess = loocv_mv_numba_gauss(data, y, h)
-        if abs(g) < tol:
+        if _grad_converged(g, h, f, tol):
             break
         if abs(f - f_prev) < 1e-8 * abs(f):
             break
         f_prev = f
 
-        if hess > 0 and np.isfinite(hess):
-            step = -g / hess
-            step = np.clip(step, -0.5 * h, 0.5 * h)
-        else:
-            step = 0.1 * h * np.sign(-g) if g != 0 else 0.0
-        if abs(step) / h < 1e-3:
+        step = _newton_step(g, hess, h)
+        if step == 0.0:
             break
-
-        h_new = max(h + step, 0.01 * h0)
-        f_new = loocv_score_mv_numba_gauss(data, y, h_new)
-
-        if f_new < f:
-            h = h_new
-            continue
-
-        for _ in range(4):
-            step *= 0.5
-            h_new = max(h + step, 0.01 * h0)
-            f_new = loocv_score_mv_numba_gauss(data, y, h_new)
-            if f_new < f:
-                h = h_new
-                break
+        accepted = _line_search(
+            lambda hh: loocv_score_mv_numba_gauss(data, y, hh), h, step, f, 0.01 * h0
+        )
+        if accepted is None:
+            break
+        h = accepted[0]
     return h
 
 
@@ -645,7 +623,9 @@ def nw_predict(
     x_te = np.asarray(x_test, dtype=float).ravel()
 
     if len(x_tr) != len(y_tr):
-        raise ValueError(f"x_train and y_train must have same length, got {len(x_tr)} and {len(y_tr)}")
+        raise ValueError(
+            f"x_train and y_train must have same length, got {len(x_tr)} and {len(y_tr)}"
+        )
     if kernel not in _KERNELS:
         raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
 
@@ -723,9 +703,13 @@ def nw_predict_mv(
     if data_te.ndim != 2:
         raise ValueError(f"data_test must be 2D array, got shape {data_te.shape}")
     if len(data_tr) != len(y_tr):
-        raise ValueError(f"data_train and y_train must have same length, got {len(data_tr)} and {len(y_tr)}")
+        raise ValueError(
+            f"data_train and y_train must have same length, got {len(data_tr)} and {len(y_tr)}"
+        )
     if data_tr.shape[1] != data_te.shape[1]:
-        raise ValueError(f"data_train and data_test must have same number of dimensions, got {data_tr.shape[1]} and {data_te.shape[1]}")
+        raise ValueError(
+            f"data_train and data_test must have same number of dimensions, got {data_tr.shape[1]} and {data_te.shape[1]}"
+        )
     if kernel not in _KERNELS:
         raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
 

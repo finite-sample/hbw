@@ -46,3 +46,63 @@ def test_kde_bandwidth_subsampling() -> None:
     x = rng.normal(0, 1, 10000)
     h = kde_bandwidth(x, max_n=500, seed=42)
     assert 0.1 < h < 2.0
+
+
+ALL_KERNELS = ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]
+
+
+def test_lscv_objective_is_scale_equivariant() -> None:
+    """c * LSCV(c*x, c*h) == LSCV(x, h): the identity the selector must inherit."""
+    from hbw.kde import lscv_score
+
+    x = np.random.default_rng(11).normal(size=200)
+    for kernel in ALL_KERNELS:
+        base = lscv_score(x, 0.35, kernel)
+        for c in (1e-3, 10.0, 1e4):
+            scaled = c * lscv_score(c * x, c * 0.35, kernel)
+            assert math.isclose(scaled, base, rel_tol=1e-12)
+
+
+def test_kde_bandwidth_is_scale_equivariant() -> None:
+    """kde_bandwidth(c*x) must equal c * kde_bandwidth(x).
+
+    The LSCV gradient scales like 1/c**2, so an absolute gradient tolerance made
+    large-unit data converge immediately and return Silverman's rule untouched.
+    """
+    from hbw import kde_bandwidth
+
+    x = np.random.default_rng(11).normal(size=400)
+    for kernel in ALL_KERNELS:
+        h1 = kde_bandwidth(x, kernel=kernel)
+        for c in (100.0, 1000.0, 1e5):
+            hc = kde_bandwidth(c * x, kernel=kernel)
+            assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
+
+
+def test_nw_bandwidth_is_scale_equivariant() -> None:
+    """nw_bandwidth(c*x, y) must equal c * nw_bandwidth(x, y)."""
+    from hbw import nw_bandwidth
+
+    rng = np.random.default_rng(11)
+    x = rng.normal(size=400)
+    y = np.sin(x) + 0.2 * rng.normal(size=400)
+    for kernel in ALL_KERNELS:
+        h1 = nw_bandwidth(x, y, kernel=kernel)
+        for c in (100.0, 1000.0, 1e5):
+            hc = nw_bandwidth(c * x, y, kernel=kernel)
+            assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
+
+
+def test_numba_loocv_score_matches_numpy_when_weights_underflow() -> None:
+    """A bandwidth so small that every weight underflows must not score as zero."""
+    from hbw._numba_nw import loocv_numba_gauss, loocv_score_numba_gauss
+    from hbw.nw import loocv_mse_score
+
+    rng = np.random.default_rng(42)
+    x = np.linspace(-2, 2, 200)
+    y = np.sin(x) + 0.1 * rng.standard_normal(200)
+    for h in (1e-6, 1e-4):
+        expected = loocv_mse_score(x, y, h, "gauss")
+        assert expected > 0.1
+        assert math.isclose(loocv_score_numba_gauss(x, y, h), expected, rel_tol=1e-12)
+        assert math.isclose(loocv_numba_gauss(x, y, h)[0], expected, rel_tol=1e-12)

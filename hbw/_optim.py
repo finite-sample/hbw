@@ -63,8 +63,13 @@ def _grad_converged(g: float, h: float, f: float, tol: float) -> bool:
         True when the scaled gradient is below ``tol``.
     """
     scale = abs(f)
-    if not np.isfinite(scale) or scale == 0.0:
+    if not np.isfinite(scale):
         return False
+    if scale == 0.0:
+        # A criterion passing through zero used to make this return False
+        # forever, so the iteration ran to its cap with nothing left to gain.
+        # Fall back to an absolute test at that single point.
+        return abs(g) * h < tol
     return abs(g) * h < tol * scale
 
 
@@ -115,6 +120,15 @@ def _line_search(
     binds long before the minimum. Doubling while the score keeps falling
     escapes such a region. Near a genuine quadratic minimum the first doubling
     is rejected immediately, so Newton's fast local convergence is preserved.
+
+    Known limitation: the accepted point is the last one that improved, which
+    can lie past the nearest minimum -- on a multi-modal criterion that is
+    enough to settle in a neighbouring basin. This is why 1-D cosine can land
+    on a local minimum 0.03% worse in objective than a dense grid. Refining the
+    bracket the overshoot leaves behind was tried and rejected: every variant
+    needed an absolute floor or tolerance somewhere, which reintroduced the
+    scale dependence this module exists to remove. If it is revisited, the
+    invariant to hold is h(c*x) == c*h(x) to 1e-6, per test_newton.py.
 
     Parameters
     ----------

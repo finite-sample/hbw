@@ -106,3 +106,20 @@ def test_numba_loocv_score_matches_numpy_when_weights_underflow() -> None:
         assert expected > 0.1
         assert math.isclose(loocv_score_numba_gauss(x, y, h), expected, rel_tol=1e-12)
         assert math.isclose(loocv_numba_gauss(x, y, h)[0], expected, rel_tol=1e-12)
+
+
+def test_grad_converged_handles_a_criterion_passing_through_zero():
+    """A zero criterion value used to make convergence unreachable.
+
+    _grad_converged scaled the gradient test by abs(f) and returned False
+    outright when that scale was zero, so an iterate sitting at f == 0 with a
+    negligible gradient could never converge and burned the whole iteration
+    budget. It now falls back to an absolute test at that single point.
+    """
+    from hbw._optim import _grad_converged
+
+    assert _grad_converged(g=1e-12, h=1.0, f=0.0, tol=1e-5)
+    assert not _grad_converged(g=1.0, h=1.0, f=0.0, tol=1e-5)
+    # A non-zero scale is unaffected.
+    assert _grad_converged(g=1e-12, h=1.0, f=2.0, tol=1e-5)
+    assert not _grad_converged(g=1e-4, h=1.0, f=1.0, tol=1e-5)

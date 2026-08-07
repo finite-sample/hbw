@@ -122,21 +122,14 @@ def loocv_mse_score(
 
     This is more efficient for grid search where only the score is needed.
 
-    Parameters
-    ----------
-    x
-        Predictor values (1D array).
-    y
-        Response values (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss", "epan", or "unif".
+    Args:
+        x: Predictor values (1D array).
+        y: Response values (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss", "epan", or "unif".
 
-    Returns
-    -------
-    float
-        LOOCV MSE score.
+    Returns:
+        float: LOOCV MSE score.
     """
     if kernel == "gauss":
         base = np.exp(-0.5 * ((x[:, None] - x[None, :]) / h) ** 2) / (h * _SQRT_2PI)
@@ -244,21 +237,14 @@ def loocv_mse_grad(
     This is more efficient than loocv_mse() when only loss and gradient are needed,
     as it skips the w'' computation required for the Hessian.
 
-    Parameters
-    ----------
-    x
-        Predictor values (1D array).
-    y
-        Response values (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss", "epan", or "unif".
+    Args:
+        x: Predictor values (1D array).
+        y: Response values (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss", "epan", or "unif".
 
-    Returns
-    -------
-    tuple[float, float]
-        (loss, gradient) of the LOOCV MSE objective.
+    Returns:
+        tuple[float, float]: (loss, gradient) of the LOOCV MSE objective.
     """
     n = len(x)
     u = (x[:, None] - x[None, :]) / h
@@ -289,21 +275,14 @@ def loocv_mse(
 ) -> tuple[float, float, float]:
     """Compute LOOCV MSE, gradient, and Hessian for NW bandwidth selection.
 
-    Parameters
-    ----------
-    x
-        Predictor values (1D array).
-    y
-        Response values (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss" or "epan".
+    Args:
+        x: Predictor values (1D array).
+        y: Response values (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss" or "epan".
 
-    Returns
-    -------
-    tuple[float, float, float]
-        (loss, gradient, hessian) of the LOOCV MSE objective.
+    Returns:
+        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE objective.
     """
     n = len(x)
     u = (x[:, None] - x[None, :]) / h
@@ -381,33 +360,22 @@ def nw_bandwidth(
     Uses analytic gradients and Hessians for fast convergence (6-12 evaluations
     vs 50-100 for grid search).
 
-    Parameters
-    ----------
-    x
-        Predictor values (1D array-like).
-    y
-        Response values (1D array-like).
-    kernel
-        Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
-    h0
-        Initial bandwidth guess. If None, uses Silverman's rule on x.
-    max_n
-        Maximum sample size for optimization. If len(x) > max_n, a random
-        subsample is used. Set to None to disable subsampling.
-    seed
-        Random seed for reproducible subsampling.
+    Args:
+        x: Predictor values (1D array-like).
+        y: Response values (1D array-like).
+        kernel: Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
+        h0: Initial bandwidth guess. If None, uses Silverman's rule on x.
+        max_n: Maximum sample size for optimization. If len(x) > max_n, a random subsample is used. Set to None to disable subsampling.
+        seed: Random seed for reproducible subsampling.
 
-    Returns
-    -------
-    float
-        Optimal bandwidth that minimizes the LOOCV MSE criterion.
+    Returns:
+        float: Optimal bandwidth that minimizes the LOOCV MSE criterion.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> x = np.linspace(-2, 2, 200)
-    >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
-    >>> h = nw_bandwidth(x, y)
+    Examples:
+        >>> import numpy as np
+        >>> x = np.linspace(-2, 2, 200)
+        >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
+        >>> h = nw_bandwidth(x, y)
     """
     x_arr = np.asarray(x, dtype=float).ravel()
     y_arr = np.asarray(y, dtype=float).ravel()
@@ -442,21 +410,14 @@ def loocv_mse_mv(
 
     Uses product kernel with isotropic bandwidth h across all dimensions.
 
-    Parameters
-    ----------
-    data
-        Predictor values, shape (n, d) where n is samples and d is dimension.
-    y
-        Response values (1D array of length n).
-    h
-        Bandwidth (scalar, applied to all dimensions).
-    kernel
-        Kernel name: "gauss".
+    Args:
+        data: Predictor values, shape (n, d) where n is samples and d is dimension.
+        y: Response values (1D array of length n).
+        h: Bandwidth (scalar, applied to all dimensions).
+        kernel: Kernel name: "gauss".
 
-    Returns
-    -------
-    tuple[float, float, float]
-        (loss, gradient, hessian) of the LOOCV MSE objective.
+    Returns:
+        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE objective.
     """
     K, Kp, Kpp, _, _, _ = _KERNELS[kernel]
     n, d = data.shape
@@ -585,38 +546,29 @@ def nw_predict(
 ) -> NDArray[Any]:
     """Nadaraya-Watson kernel regression predictions.
 
-    Parameters
-    ----------
-    x_train
-        Training predictor values (1D array-like).
-    y_train
-        Training response values (1D array-like).
-    x_test
-        Test predictor values where predictions are desired (1D array-like).
-    h
-        Bandwidth (obtained from nw_bandwidth).
-    kernel
-        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+    Args:
+        x_train: Training predictor values (1D array-like).
+        y_train: Training response values (1D array-like).
+        x_test: Test predictor values where predictions are desired (1D array-like).
+        h: Bandwidth (obtained from nw_bandwidth).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
 
-    Returns
-    -------
-    Predicted values at x_test locations.
+    Returns:
+        Predicted values at x_test locations.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> x = np.linspace(-2, 2, 200)
-    >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
-    >>> h = nw_bandwidth(x, y)
-    >>> y_pred = nw_predict(x, y, x, h)  # in-sample predictions
+    Examples:
+        >>> import numpy as np
+        >>> x = np.linspace(-2, 2, 200)
+        >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
+        >>> h = nw_bandwidth(x, y)
+        >>> y_pred = nw_predict(x, y, x, h)  # in-sample predictions
 
-    Notes
-    -----
-    This function returns point estimates only. No confidence intervals or
-    standard errors are provided. Key assumptions: smooth regression function,
-    IID observations, design density bounded away from zero in region of interest.
+    Notes:
+        This function returns point estimates only. No confidence intervals or
+        standard errors are provided. Key assumptions: smooth regression function,
+        IID observations, design density bounded away from zero in region of interest.
 
-    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+        For inference, consider bootstrap resampling or see statsmodels.nonparametric.
     """
     x_tr = np.asarray(x_train, dtype=float).ravel()
     y_tr = np.asarray(y_train, dtype=float).ravel()
@@ -654,40 +606,31 @@ def nw_predict_mv(
 ) -> NDArray[Any]:
     """Multivariate Nadaraya-Watson kernel regression predictions using product kernel.
 
-    Parameters
-    ----------
-    data_train
-        Training predictor values, shape (n_train, d).
-    y_train
-        Training response values (1D array of length n_train).
-    data_test
-        Test predictor values where predictions are desired, shape (n_test, d).
-    h
-        Bandwidth (scalar, applied to all dimensions; obtained from nw_bandwidth_mv).
-    kernel
-        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+    Args:
+        data_train: Training predictor values, shape (n_train, d).
+        y_train: Training response values (1D array of length n_train).
+        data_test: Test predictor values where predictions are desired, shape (n_test, d).
+        h: Bandwidth (scalar, applied to all dimensions; obtained from nw_bandwidth_mv).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
 
-    Returns
-    -------
-    Predicted values at data_test locations.
+    Returns:
+        Predicted values at data_test locations.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> data = np.random.randn(500, 2)
-    >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
-    >>> h = nw_bandwidth_mv(data, y)
-    >>> y_pred = nw_predict_mv(data, y, data, h)  # in-sample predictions
+    Examples:
+        >>> import numpy as np
+        >>> data = np.random.randn(500, 2)
+        >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
+        >>> h = nw_bandwidth_mv(data, y)
+        >>> y_pred = nw_predict_mv(data, y, data, h)  # in-sample predictions
 
-    Notes
-    -----
-    This function returns point estimates only. No confidence intervals or
-    standard errors are provided. Key assumptions: smooth regression function,
-    IID observations, design density bounded away from zero in region of interest.
-    Uses product kernel with isotropic bandwidth; data should be standardized
-    for best results.
+    Notes:
+        This function returns point estimates only. No confidence intervals or
+        standard errors are provided. Key assumptions: smooth regression function,
+        IID observations, design density bounded away from zero in region of interest.
+        Uses product kernel with isotropic bandwidth; data should be standardized
+        for best results.
 
-    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+        For inference, consider bootstrap resampling or see statsmodels.nonparametric.
     """
     data_tr = np.asarray(data_train, dtype=float)
     y_tr = np.asarray(y_train, dtype=float).ravel()
@@ -745,37 +688,23 @@ def nw_bandwidth_mv(
     For best results, predictors should be standardized (each dimension scaled
     to similar variance).
 
-    Parameters
-    ----------
-    data
-        Predictor values, shape (n, d) where n is samples and d is dimension.
-    y
-        Response values (1D array of length n).
-    kernel
-        Kernel function: "gauss", "epan", or "unif".
-    h0
-        Initial bandwidth guess. If None, uses Scott's rule.
-    max_n
-        Maximum sample size for optimization. If n > max_n, a random
-        subsample is used. Set to None to disable subsampling.
-    seed
-        Random seed for reproducible subsampling.
-    standardize
-        If True, standardize each predictor dimension to unit variance before
-        bandwidth selection.
+    Args:
+        data: Predictor values, shape (n, d) where n is samples and d is dimension.
+        y: Response values (1D array of length n).
+        kernel: Kernel function: "gauss", "epan", or "unif".
+        h0: Initial bandwidth guess. If None, uses Scott's rule.
+        max_n: Maximum sample size for optimization. If n > max_n, a random subsample is used. Set to None to disable subsampling.
+        seed: Random seed for reproducible subsampling.
+        standardize: If True, standardize each predictor dimension to unit variance before bandwidth selection.
 
-    Returns
-    -------
-    float
-        Optimal bandwidth that minimizes the LOOCV MSE criterion.
-        If standardize=True, this is the bandwidth for the standardized data.
+    Returns:
+        float: Optimal bandwidth that minimizes the LOOCV MSE criterion. If standardize=True, this is the bandwidth for the standardized data.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> data = np.random.randn(500, 2)
-    >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
-    >>> h = nw_bandwidth_mv(data, y)
+    Examples:
+        >>> import numpy as np
+        >>> data = np.random.randn(500, 2)
+        >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
+        >>> h = nw_bandwidth_mv(data, y)
     """
     data_arr = np.asarray(data, dtype=float)
     y_arr = np.asarray(y, dtype=float).ravel()

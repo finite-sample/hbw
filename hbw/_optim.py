@@ -46,23 +46,15 @@ def _grad_converged(g: float, h: float, f: float, hess: float, tol: float) -> bo
     returns Silverman's rule untouched. The dimensionless ratio ``|g| * h / |f|``
     is invariant under ``x -> c * x`` for both criteria, so test that instead.
 
-    Parameters
-    ----------
-    g
-        Gradient of the criterion at ``h``.
-    h
-        Current bandwidth.
-    f
-        Value of the criterion at ``h``.
-    hess
-        Hessian of the criterion at ``h``.
-    tol
-        Relative tolerance.
+    Args:
+        g: Gradient of the criterion at ``h``.
+        h: Current bandwidth.
+        f: Value of the criterion at ``h``.
+        hess: Hessian of the criterion at ``h``.
+        tol: Relative tolerance.
 
-    Returns
-    -------
-    bool
-        True when the scaled gradient is below ``tol``.
+    Returns:
+        bool: True when the scaled gradient is below ``tol``.
     """
     scale = abs(f)
     if not np.isfinite(scale):
@@ -86,19 +78,13 @@ def _bandwidth_floor(h_reference: float, ratio: float = 1e-6) -> float:
 def _newton_step(g: float, hess: float, h: float) -> float:
     """Return a trial step: the Newton step, capped above and floored below.
 
-    Parameters
-    ----------
-    g
-        Gradient at ``h``.
-    hess
-        Hessian at ``h``.
-    h
-        Current bandwidth.
+    Args:
+        g: Gradient at ``h``.
+        hess: Hessian at ``h``.
+        h: Current bandwidth.
 
-    Returns
-    -------
-    float
-        Trial step, zero only when the gradient vanishes.
+    Returns:
+        float: Trial step, zero only when the gradient vanishes.
     """
     if g == 0.0:
         return 0.0
@@ -140,27 +126,17 @@ def _line_search(
     scale dependence this module exists to remove. If it is revisited, the
     invariant to hold is h(c*x) == c*h(x) to 1e-6, per test_newton.py.
 
-    Parameters
-    ----------
-    score_at
-        Function returning the criterion at a bandwidth.
-    h
-        Current bandwidth.
-    step
-        Trial step (must point downhill).
-    f
-        Criterion value at ``h``.
-    h_floor
-        Smallest admissible bandwidth.
-    n_back
-        Maximum number of step halvings.
-    n_forward
-        Maximum number of step doublings.
+    Args:
+        score_at: Function returning the criterion at a bandwidth.
+        h: Current bandwidth.
+        step: Trial step (must point downhill).
+        f: Criterion value at ``h``.
+        h_floor: Smallest admissible bandwidth.
+        n_back: Maximum number of step halvings.
+        n_forward: Maximum number of step doublings.
 
-    Returns
-    -------
-    tuple[float, float] | None
-        The accepted ``(bandwidth, score)``, or None if no decrease was found.
+    Returns:
+        tuple[float, float] | None: The accepted ``(bandwidth, score)``, or None if no decrease was found.
     """
     h_new = max(h + step, h_floor)
     f_new = score_at(h_new)
@@ -199,30 +175,18 @@ def _newton_armijo(
 ) -> float:
     """Run Newton-Armijo optimization for bandwidth selection.
 
-    Parameters
-    ----------
-    objective
-        Function returning (score, gradient, hessian).
-    x
-        Data array.
-    y
-        Optional response array (for NW regression).
-    h0
-        Initial bandwidth.
-    kernel
-        Kernel name.
-    tol
-        Relative convergence tolerance on the scaled gradient ``|g| * h / |f|``.
-    max_iter
-        Maximum Newton iterations.
-    score_only
-        Optional score-only function for efficient backtracking.
-        If None, uses objective(...)[0].
+    Args:
+        objective: Function returning (score, gradient, hessian).
+        x: Data array.
+        y: Optional response array (for NW regression).
+        h0: Initial bandwidth.
+        kernel: Kernel name.
+        tol: Relative convergence tolerance on the scaled gradient ``|g| * h / |f|``.
+        max_iter: Maximum Newton iterations.
+        score_only: Optional score-only function for efficient backtracking. If None, uses objective(...)[0].
 
-    Returns
-    -------
-    float
-        Optimal bandwidth.
+    Returns:
+        float: Optimal bandwidth.
     """
 
     def _eval_score(h: float) -> float:

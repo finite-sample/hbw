@@ -68,7 +68,8 @@ select = [
 ignore = ["E501", "N806", "D100", "D104", "ANN401"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "numpy"
+# The fleet standard; see ../preen.
+convention = "google"
 
 [tool.mypy]
 python_version = "3.12"
@@ -77,7 +78,7 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.pydoclint]
-style = "numpy"
+style = "google"
 check-return-types = false
 check-yield-types = true
 arg-type-hints-in-docstring = false

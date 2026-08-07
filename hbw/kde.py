@@ -38,19 +38,13 @@ def lscv_score(x: NDArray[Any], h: float, kernel: str = "gauss") -> float:
 
     This is more efficient for grid search where only the score is needed.
 
-    Parameters
-    ----------
-    x
-        Sample data (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss", "epan", or "unif".
+    Args:
+        x: Sample data (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss", "epan", or "unif".
 
-    Returns
-    -------
-    float
-        LSCV score.
+    Returns:
+        float: LSCV score.
     """
     K, _, _, K2, _, _ = _KERNELS[kernel]
     n = len(x)
@@ -68,19 +62,13 @@ def lscv_grad(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, 
     This is more efficient than lscv() when only score and gradient are needed,
     as it skips the K'' and (K*K)'' computations required for the Hessian.
 
-    Parameters
-    ----------
-    x
-        Sample data (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss", "epan", or "unif".
+    Args:
+        x: Sample data (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss", "epan", or "unif".
 
-    Returns
-    -------
-    tuple[float, float]
-        (score, gradient) of the LSCV objective.
+    Returns:
+        tuple[float, float]: (score, gradient) of the LSCV objective.
     """
     K, Kp, _, K2, K2p, _ = _KERNELS[kernel]
     n = len(x)
@@ -106,19 +94,13 @@ def lscv_grad(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, 
 def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float, float]:
     """Compute LSCV score, gradient, and Hessian for KDE bandwidth selection.
 
-    Parameters
-    ----------
-    x
-        Sample data (1D array).
-    h
-        Bandwidth.
-    kernel
-        Kernel name: "gauss" or "epan".
+    Args:
+        x: Sample data (1D array).
+        h: Bandwidth.
+        kernel: Kernel name: "gauss" or "epan".
 
-    Returns
-    -------
-    tuple[float, float, float]
-        (score, gradient, hessian) of the LSCV objective.
+    Returns:
+        tuple[float, float, float]: (score, gradient, hessian) of the LSCV objective.
     """
     K, Kp, Kpp, K2, K2p, K2pp = _KERNELS[kernel]
     n = len(x)
@@ -194,30 +176,20 @@ def kde_bandwidth(
     Uses analytic gradients and Hessians for fast convergence (6-12 evaluations
     vs 50-100 for grid search).
 
-    Parameters
-    ----------
-    x
-        Sample data (1D array-like).
-    kernel
-        Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
-    h0
-        Initial bandwidth guess. If None, uses Silverman's rule.
-    max_n
-        Maximum sample size for optimization. If len(x) > max_n, a random
-        subsample is used. Set to None to disable subsampling.
-    seed
-        Random seed for reproducible subsampling.
+    Args:
+        x: Sample data (1D array-like).
+        kernel: Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
+        h0: Initial bandwidth guess. If None, uses Silverman's rule.
+        max_n: Maximum sample size for optimization. If len(x) > max_n, a random subsample is used. Set to None to disable subsampling.
+        seed: Random seed for reproducible subsampling.
 
-    Returns
-    -------
-    float
-        Optimal bandwidth that minimizes the LSCV criterion.
+    Returns:
+        float: Optimal bandwidth that minimizes the LSCV criterion.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> x = np.random.randn(1000)
-    >>> h = kde_bandwidth(x)
+    Examples:
+        >>> import numpy as np
+        >>> x = np.random.randn(1000)
+        >>> h = kde_bandwidth(x)
     """
     x_arr = np.asarray(x, dtype=float).ravel()
     if kernel not in _KERNELS:
@@ -244,19 +216,13 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
 
     Uses product kernel with isotropic bandwidth h across all dimensions.
 
-    Parameters
-    ----------
-    data
-        Sample data, shape (n, d) where n is number of samples and d is dimension.
-    h
-        Bandwidth (scalar, applied to all dimensions).
-    kernel
-        Kernel name: "gauss", "epan", or "unif".
+    Args:
+        data: Sample data, shape (n, d) where n is number of samples and d is dimension.
+        h: Bandwidth (scalar, applied to all dimensions).
+        kernel: Kernel name: "gauss", "epan", or "unif".
 
-    Returns
-    -------
-    tuple[float, float, float]
-        (score, gradient, hessian) of the LSCV objective.
+    Returns:
+        tuple[float, float, float]: (score, gradient, hessian) of the LSCV objective.
     """
     K, Kp, Kpp, K2, K2p, K2pp = _KERNELS[kernel]
     n, d = data.shape
@@ -383,36 +349,28 @@ def kde_evaluate(
 ) -> NDArray[Any]:
     """Evaluate kernel density estimate at given points.
 
-    Parameters
-    ----------
-    x_train
-        Training sample data (1D array-like).
-    x_eval
-        Points at which to evaluate the density (1D array-like).
-    h
-        Bandwidth (obtained from kde_bandwidth).
-    kernel
-        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+    Args:
+        x_train: Training sample data (1D array-like).
+        x_eval: Points at which to evaluate the density (1D array-like).
+        h: Bandwidth (obtained from kde_bandwidth).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
 
-    Returns
-    -------
-    Estimated density values at x_eval locations.
+    Returns:
+        Estimated density values at x_eval locations.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> x = np.random.randn(1000)
-    >>> h = kde_bandwidth(x)
-    >>> x_grid = np.linspace(-3, 3, 100)
-    >>> density = kde_evaluate(x, x_grid, h)
+    Examples:
+        >>> import numpy as np
+        >>> x = np.random.randn(1000)
+        >>> h = kde_bandwidth(x)
+        >>> x_grid = np.linspace(-3, 3, 100)
+        >>> density = kde_evaluate(x, x_grid, h)
 
-    Notes
-    -----
-    This function returns point estimates only. No confidence intervals or
-    standard errors are provided. Key assumptions: smooth underlying density,
-    IID observations, continuous density (no point masses).
+    Notes:
+        This function returns point estimates only. No confidence intervals or
+        standard errors are provided. Key assumptions: smooth underlying density,
+        IID observations, continuous density (no point masses).
 
-    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+        For inference, consider bootstrap resampling or see statsmodels.nonparametric.
     """
     x_tr = np.asarray(x_train, dtype=float).ravel()
     x_ev = np.asarray(x_eval, dtype=float).ravel()
@@ -437,37 +395,29 @@ def kde_evaluate_mv(
 ) -> NDArray[Any]:
     """Evaluate multivariate kernel density estimate at given points using product kernel.
 
-    Parameters
-    ----------
-    data_train
-        Training sample data, shape (n_train, d).
-    data_eval
-        Points at which to evaluate the density, shape (n_eval, d).
-    h
-        Bandwidth (scalar, applied to all dimensions; obtained from kde_bandwidth_mv).
-    kernel
-        Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+    Args:
+        data_train: Training sample data, shape (n_train, d).
+        data_eval: Points at which to evaluate the density, shape (n_eval, d).
+        h: Bandwidth (scalar, applied to all dimensions; obtained from kde_bandwidth_mv).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
 
-    Returns
-    -------
-    Estimated density values at data_eval locations.
+    Returns:
+        Estimated density values at data_eval locations.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> data = np.random.randn(500, 2)
-    >>> h = kde_bandwidth_mv(data)
-    >>> data_grid = np.column_stack([np.linspace(-3, 3, 50), np.linspace(-3, 3, 50)])
-    >>> density = kde_evaluate_mv(data, data_grid, h)
+    Examples:
+        >>> import numpy as np
+        >>> data = np.random.randn(500, 2)
+        >>> h = kde_bandwidth_mv(data)
+        >>> data_grid = np.column_stack([np.linspace(-3, 3, 50), np.linspace(-3, 3, 50)])
+        >>> density = kde_evaluate_mv(data, data_grid, h)
 
-    Notes
-    -----
-    This function returns point estimates only. No confidence intervals or
-    standard errors are provided. Key assumptions: smooth underlying density,
-    IID observations, continuous density (no point masses). Uses product kernel
-    with isotropic bandwidth; data should be standardized for best results.
+    Notes:
+        This function returns point estimates only. No confidence intervals or
+        standard errors are provided. Key assumptions: smooth underlying density,
+        IID observations, continuous density (no point masses). Uses product kernel
+        with isotropic bandwidth; data should be standardized for best results.
 
-    For inference, consider bootstrap resampling or see statsmodels.nonparametric.
+        For inference, consider bootstrap resampling or see statsmodels.nonparametric.
     """
     data_tr = np.asarray(data_train, dtype=float)
     data_ev = np.asarray(data_eval, dtype=float)
@@ -515,34 +465,21 @@ def kde_bandwidth_mv(
     For best results, data should be standardized (each dimension scaled to
     similar variance).
 
-    Parameters
-    ----------
-    data
-        Sample data, shape (n, d) where n is samples and d is dimension.
-    kernel
-        Kernel function: "gauss", "epan", or "unif".
-    h0
-        Initial bandwidth guess. If None, uses Scott's rule.
-    max_n
-        Maximum sample size for optimization. If n > max_n, a random
-        subsample is used. Set to None to disable subsampling.
-    seed
-        Random seed for reproducible subsampling.
-    standardize
-        If True, standardize each dimension to unit variance before
-        bandwidth selection.
+    Args:
+        data: Sample data, shape (n, d) where n is samples and d is dimension.
+        kernel: Kernel function: "gauss", "epan", or "unif".
+        h0: Initial bandwidth guess. If None, uses Scott's rule.
+        max_n: Maximum sample size for optimization. If n > max_n, a random subsample is used. Set to None to disable subsampling.
+        seed: Random seed for reproducible subsampling.
+        standardize: If True, standardize each dimension to unit variance before bandwidth selection.
 
-    Returns
-    -------
-    float
-        Optimal bandwidth that minimizes the LSCV criterion.
-        If standardize=True, this is the bandwidth for the standardized data.
+    Returns:
+        float: Optimal bandwidth that minimizes the LSCV criterion. If standardize=True, this is the bandwidth for the standardized data.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> data = np.random.randn(500, 2)
-    >>> h = kde_bandwidth_mv(data)
+    Examples:
+        >>> import numpy as np
+        >>> data = np.random.randn(500, 2)
+        >>> h = kde_bandwidth_mv(data)
     """
     data_arr = np.asarray(data, dtype=float)
     if data_arr.ndim == 1:

@@ -35,8 +35,25 @@ Three properties, in decreasing order of how hard they are to fake:
 relative rate of convergence to the optimal bandwidth is only ``n^(-1/10)`` -- and
 this shows up here as an interquartile range of a quarter to two fifths of the
 median, which barely shrinks with n. That is a property of the method, not a
-defect in this implementation, so the tests below gate the *median* over
-replicates and characterise the spread rather than trying to bound it tightly.
+defect in this implementation, so the tests below characterise the spread rather
+than trying to bound it tightly.
+
+**Where the tolerances come from.** Properties 1 and 2 are statements about a
+quantity with a known population value, so their gates are
+:func:`simcheck.assert_unbiased`: the estimate is computed once per replicate and
+compared to the truth against its own Monte Carlo standard error. The tolerance
+is therefore a function of ``REPS`` and of the estimator's own spread, and it
+tightens on its own when the replicate count rises -- which is why ``REPS`` is
+:func:`simcheck.reps_for` rather than a constant. The hand-picked ranges these
+replaced (``-0.28 < slope < -0.13``, ``0.75 < ratio < 1.35``) recorded neither
+the study they came from nor what would make them wrong.
+
+Three numbers here are deliberately *not* simcheck gates, because they are not
+tolerances: the ``<= 1 + 1e-9`` bounds on efficiency are an exact mathematical
+fact plus float slack, and the efficiency floors and the doubling/halving factor
+are effect sizes -- how good a selection has to be, and how much worse a wrong
+one has to be -- for which no sampling distribution supplies a band. Each is
+marked where it appears.
 """
 
 from __future__ import annotations
@@ -45,12 +62,17 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 import pytest
+from simcheck import MonteCarloResult, assert_unbiased, reps_for
 
 from hbw import kde_bandwidth, kde_evaluate, nw_bandwidth, nw_predict
 
-# Replicates per sample size. Enough to pin a median without the file becoming
-# something nobody runs; the quantities gated below are stable at this size.
-REPS = 25
+# Replicates per sample size, from simcheck's tier: 100 normally, 400 when
+# SIMCHECK_DEEP is set, and whatever SIMCHECK_REPS says beyond that. It was a
+# hardcoded 25, which is below simcheck's own FAST_REPS floor and is not enough
+# to resolve the rate to better than about +-0.15 -- roughly the width of the
+# range the old assertion allowed, so the gate could not have failed for any
+# reason short of a constant selector.
+REPS = reps_for()
 GRID = np.linspace(-6.0, 6.0, 801)
 NORMAL_DENSITY = np.exp(-0.5 * GRID**2) / np.sqrt(2 * np.pi)
 
@@ -82,12 +104,43 @@ def _kde_ise(sample: np.ndarray, bandwidth: float) -> float:
     return float(np.trapezoid((estimate - NORMAL_DENSITY) ** 2, GRID))
 
 
+def _study(estimates: np.ndarray, truth: float) -> MonteCarloResult:
+    """Wrap per-replicate estimates as a simcheck study.
+
+    The selector reports a bandwidth and nothing else -- no standard error and no
+    interval -- so those are recorded as absent rather than invented.
+    ``assert_unbiased`` reads only the estimates and the truth.
+
+    Args:
+        estimates: One estimate per replicate.
+        truth: The population value it is being compared against.
+
+    Returns:
+        MonteCarloResult: The study.
+    """
+    values = np.asarray(estimates, dtype=float)
+    return MonteCarloResult(
+        estimates=values,
+        standard_errors=np.full(values.shape, np.nan),
+        covered=None,
+        rejected=None,
+        truth=float(truth),
+    )
+
+
 def _selected_bandwidths(
     sizes: Sequence[int],
     draw: Callable[..., tuple],
     select: Callable[..., float],
-) -> tuple[list[float], list[float]]:
-    """Median selected bandwidth at each sample size.
+) -> np.ndarray:
+    """Selected bandwidth for every (replicate, sample size) pair.
+
+    Replicate ``i`` is seeded ``1000 + i`` at every size, so a *row* is one
+    replicate followed across n. That is what makes a per-replicate log-log slope
+    meaningful: each row yields one draw from the slope's sampling distribution,
+    and the spread of those draws is the Monte Carlo standard error the gate
+    needs. Collapsing to a median first, as this used to, leaves a single number
+    with no measurable uncertainty and nothing to set a tolerance from.
 
     Args:
         sizes: Sample sizes to sweep.
@@ -95,19 +148,43 @@ def _selected_bandwidths(
         select: Callable taking those arguments and returning a bandwidth.
 
     Returns:
-        tuple: ``(medians, spreads)``, the second being IQR over median.
+        np.ndarray: Shape ``(REPS, len(sizes))``.
     """
-    medians, spreads = [], []
-    for n in sizes:
-        chosen = []
+    chosen = np.empty((REPS, len(sizes)))
+    for column, n in enumerate(sizes):
         for i in range(REPS):
             rng = np.random.default_rng(1000 + i)
-            chosen.append(select(*draw(rng, n)))
-        chosen = np.asarray(chosen)
-        median = float(np.median(chosen))
-        medians.append(median)
-        spreads.append(float(np.percentile(chosen, 75) - np.percentile(chosen, 25)) / median)
-    return medians, spreads
+            chosen[i, column] = select(*draw(rng, n))
+    return chosen
+
+
+def _log_log_slopes(sizes: Sequence[int], chosen: np.ndarray) -> np.ndarray:
+    """Per-replicate slope of ``log h`` on ``log n``.
+
+    Args:
+        sizes: The sample sizes, matching the columns of ``chosen``.
+        chosen: Selected bandwidths, shape ``(REPS, len(sizes))``.
+
+    Returns:
+        np.ndarray: One slope per replicate.
+    """
+    return np.polyfit(np.log(sizes), np.log(chosen.T), 1)[0]
+
+
+def _relative_spreads(chosen: np.ndarray) -> list[float]:
+    """Interquartile range over median, at each sample size.
+
+    Args:
+        chosen: Selected bandwidths, shape ``(REPS, len(sizes))``.
+
+    Returns:
+        list of float: One relative spread per column.
+    """
+    return [
+        float(np.percentile(column, 75) - np.percentile(column, 25))
+        / float(np.median(column))
+        for column in chosen.T
+    ]
 
 
 # --------------------------------------------------------------------------
@@ -116,37 +193,43 @@ def _selected_bandwidths(
 
 
 def test_the_kde_bandwidth_shrinks_at_the_theoretical_rate() -> None:
-    """``log h`` against ``log n`` must have slope near -1/5.
+    """``log h`` against ``log n`` must have slope -1/5.
 
     This is the cheapest property to state and the hardest to satisfy by
     accident: it constrains how the selector responds to sample size, which a
-    constant or a mis-scaled rule cannot fake. Measured -0.191.
+    constant or a mis-scaled rule cannot fake.
+
+    The slope is estimated once per replicate and its mean tested against the
+    exact ``-0.2`` by ``assert_unbiased``, so the tolerance is three Monte Carlo
+    standard errors of that mean rather than the ``-0.28 < slope < -0.13`` this
+    replaces. Measured: -0.190 at 100 replicates (0.5 standard errors from the
+    truth) and -0.211 at 400 (1.3).
     """
     sizes = (100, 200, 400, 800, 1600)
-    medians, _ = _selected_bandwidths(
+    chosen = _selected_bandwidths(
         sizes,
         lambda rng, n: (rng.standard_normal(n),),
         lambda x: kde_bandwidth(x, max_n=None),
     )
 
-    slope = float(np.polyfit(np.log(sizes), np.log(medians), 1)[0])
-    assert -0.28 < slope < -0.13, (
-        f"bandwidth shrinks as n^({slope:.3f}); the second-order-kernel rate is n^(-0.2)"
-    )
+    assert_unbiased(_study(_log_log_slopes(sizes, chosen), -0.2), "kde log-log slope")
 
 
 def test_the_regression_bandwidth_shrinks_at_the_theoretical_rate() -> None:
-    """Same rate for the Nadaraya-Watson selector. Measured -0.201."""
+    """Same rate for the Nadaraya-Watson selector.
+
+    Measured -0.183 at 100 replicates (1.3 standard errors from -0.2) and -0.199
+    at 400 (0.2).
+    """
     sizes = (100, 200, 400, 800)
 
     def draw(rng: np.random.Generator, n: int) -> tuple:
         x = np.sort(rng.uniform(-2.0, 2.0, n))
         return x, np.sin(2.0 * x) + 0.3 * rng.standard_normal(n)
 
-    medians, _ = _selected_bandwidths(sizes, draw, lambda x, y: nw_bandwidth(x, y, max_n=None))
+    chosen = _selected_bandwidths(sizes, draw, lambda x, y: nw_bandwidth(x, y, max_n=None))
 
-    slope = float(np.polyfit(np.log(sizes), np.log(medians), 1)[0])
-    assert -0.28 < slope < -0.13, f"bandwidth shrinks as n^({slope:.3f}); the rate is n^(-0.2)"
+    assert_unbiased(_study(_log_log_slopes(sizes, chosen), -0.2), "nw log-log slope")
 
 
 # --------------------------------------------------------------------------
@@ -156,15 +239,19 @@ def test_the_regression_bandwidth_shrinks_at_the_theoretical_rate() -> None:
 
 @pytest.mark.parametrize("n", [200, 800])
 def test_the_kde_bandwidth_matches_the_exact_gaussian_optimum(n: int) -> None:
-    """Median selection must sit near the closed-form MISE optimum.
+    """The selection must sit on the closed-form MISE optimum.
 
     There is no tuning constant in the target: for a normal density and a
-    Gaussian kernel the MISE-optimal bandwidth is ``(4/3)^(1/5) s n^(-1/5)``.
+    Gaussian kernel the MISE-optimal bandwidth is ``(4/3)^(1/5) s n^(-1/5)``, so
+    the ratio of the selection to it has a population value of exactly one.
 
-    The gate is on the median over replicates rather than a single draw, because
-    least-squares cross-validation is highly variable by nature -- its relative
-    rate of convergence to the optimum is only ``n^(-1/10)``. Measured ratios
-    across n from 100 to 1600: 0.93, 1.05, 1.08, 0.96, 1.01.
+    The gate is on the mean ratio over replicates against three Monte Carlo
+    standard errors of that mean, which is what least-squares cross-validation's
+    variability -- its relative rate of convergence to the optimum is only
+    ``n^(-1/10)`` -- makes the study able to say. Measured mean ratios: 1.00 at
+    n=200 and 0.97 at n=800 over 100 replicates, 1.03 and 0.98 over 400. The
+    ``0.75 < ratio < 1.35`` this replaces was wide enough that only a selector
+    off by a third could trip it, at any replicate count.
 
     Args:
         n: Sample size.
@@ -175,10 +262,10 @@ def test_the_kde_bandwidth_matches_the_exact_gaussian_optimum(n: int) -> None:
             for i in range(REPS)
         ]
     )
-    ratio = float(np.median(chosen)) / gaussian_mise_bandwidth(n)
 
-    assert 0.75 < ratio < 1.35, (
-        f"median bandwidth is {ratio:.3f} times the exact Gaussian MISE optimum at n={n}"
+    assert_unbiased(
+        _study(chosen / gaussian_mise_bandwidth(n), 1.0),
+        f"kde bandwidth over the exact Gaussian MISE optimum at n={n}",
     )
 
 
@@ -193,12 +280,20 @@ def test_the_spread_of_the_selection_is_reported_not_bounded_tightly() -> None:
 
     What it does catch is a selector that has stopped responding to the data at
     all, which would show a spread of essentially zero.
+
+    Deliberately not a simcheck gate. An interquartile range over a median has no
+    population value here and no tractable sampling distribution, so there is
+    nothing for a band to be derived from; these two numbers describe observed
+    behaviour and say so, which is a different thing from a tolerance that
+    pretends to be a threshold.
     """
     sizes = (200, 800)
-    _, spreads = _selected_bandwidths(
-        sizes,
-        lambda rng, n: (rng.standard_normal(n),),
-        lambda x: kde_bandwidth(x, max_n=None),
+    spreads = _relative_spreads(
+        _selected_bandwidths(
+            sizes,
+            lambda rng, n: (rng.standard_normal(n),),
+            lambda x: kde_bandwidth(x, max_n=None),
+        )
     )
 
     for n, spread in zip(sizes, spreads, strict=True):
@@ -222,9 +317,19 @@ def test_the_selected_bandwidth_is_close_to_the_best_available(n: int) -> None:
     achievable on that same sample, so a selector that hits the right rate and
     the right level but lands in a bad place would still be caught.
 
-    Measured median efficiency: 0.78 at n=200 and 0.80 at n=800, rising to 0.82
-    by n=1600. It is well below 1 because a single sample's ISE-minimising
-    bandwidth is itself a moving target that no data-driven rule can match.
+    Measured median efficiency: 0.79 at n=200 and 0.83 at n=800 over 100
+    replicates, 0.81 and 0.86 over 400. It is well below 1 because a single
+    sample's ISE-minimising bandwidth is itself a moving target that no
+    data-driven rule can match.
+
+    The floor stays a chosen number, deliberately. Oracle efficiency has no
+    closed-form population value at finite n -- only the asymptotic statement
+    that it tends to 1 -- so there is no truth for ``assert_unbiased`` to test
+    against and no rate for a binomial band to describe. What 0.55 encodes is an
+    effect size: how far below the measured 0.79 a selector would have to fall
+    before it is worth failing the build over. The upper check is not a tolerance
+    either; efficiency exceeding 1 is arithmetically impossible, so ``1 + 1e-9``
+    is an exact bound plus float slack and catches a broken oracle search.
 
     Args:
         n: Sample size.
@@ -255,6 +360,14 @@ def test_a_deliberately_wrong_bandwidth_is_measurably_worse() -> None:
     If integrated squared error were insensitive to the bandwidth over the range
     that matters, the test above would pass for any selector at all. Doubling and
     halving the selection must both cost something real.
+
+    The 1.5 is an effect size rather than a tolerance, and stays. The question
+    this test asks is not "is the increase larger than Monte Carlo noise" -- at
+    these replicate counts the paired loss ratio sits 9 to 18 standard errors
+    above 1, so a noise-based gate would pass an error measure that barely moved
+    -- but "is the increase large enough that the efficiency test above can
+    discriminate". Measured paired ratios: 4.1x for doubling and 1.8x for
+    halving.
     """
     n = 400
     losses = {"selected": [], "doubled": [], "halved": []}
@@ -285,6 +398,10 @@ def test_the_regression_bandwidth_is_close_to_the_best_available() -> None:
     outer quarter of the range, because Nadaraya-Watson is badly biased at the
     boundary for reasons that have nothing to do with the bandwidth rule and
     would otherwise dominate the comparison.
+
+    As above, the floor is an effect size and the ``1 + 1e-9`` an exact bound;
+    neither is a Monte Carlo tolerance, and neither has a population value to be
+    banded against.
     """
     n = 400
     grid = np.linspace(-1.5, 1.5, 150)

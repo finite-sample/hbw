@@ -99,4 +99,12 @@ testpaths = ["tests"]
 [dependency-groups]
 dev = [
     "scipy>=1.17.1",
+    { include-group = "test" },
+]
+test = [
+    # The Monte Carlo gates in tests/test_bandwidth_statistics.py. A git
+    # reference, so it stays in dependency-groups and out of the published
+    # extras: PyPI rejects direct URL references in project metadata. Reached
+    # through `dev` because that is the group CI syncs.
+    "simcheck @ git+https://github.com/finite-sample/simcheck",
 ]

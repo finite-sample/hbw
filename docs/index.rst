@@ -43,3 +43,14 @@ API Reference
    :members: kde_bandwidth, nw_bandwidth, lscv, loocv_mse
    :undoc-members:
    :show-inheritance:
+
+Theory
+------
+
+The derivations behind the analytic gradient and Hessian.
+
+.. toctree::
+   :maxdepth: 2
+
+   theory/analytic-kde-bw
+   theory/analytic-nw-bw

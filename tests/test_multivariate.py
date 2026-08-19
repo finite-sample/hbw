@@ -16,7 +16,9 @@ def test_lscv_mv_gradient_accuracy() -> None:
         for h in [0.3, 0.5, 0.8]:
             _, grad_a, _ = lscv_mv(X, h, kernel)
             eps = 1e-5
-            grad_n = (lscv_mv(X, h + eps, kernel)[0] - lscv_mv(X, h - eps, kernel)[0]) / (2 * eps)
+            grad_n = (
+                lscv_mv(X, h + eps, kernel)[0] - lscv_mv(X, h - eps, kernel)[0]
+            ) / (2 * eps)
             assert math.isclose(grad_a, grad_n, rel_tol=1e-4)
 
 
@@ -62,7 +64,10 @@ def test_loocv_mse_mv_gradient_accuracy() -> None:
     for h in [0.3, 0.5, 0.8]:
         _, grad_a, _ = loocv_mse_mv(X, y, h, "gauss")
         eps = 1e-5
-        grad_n = (loocv_mse_mv(X, y, h + eps, "gauss")[0] - loocv_mse_mv(X, y, h - eps, "gauss")[0]) / (2 * eps)
+        grad_n = (
+            loocv_mse_mv(X, y, h + eps, "gauss")[0]
+            - loocv_mse_mv(X, y, h - eps, "gauss")[0]
+        ) / (2 * eps)
         assert math.isclose(grad_a, grad_n, rel_tol=1e-4)
 
 
@@ -115,9 +120,15 @@ def test_loocv_mse_mv_numba_matches_numpy() -> None:
         score_nb = loocv_score_mv_numba_gauss(X, y, h)
 
         assert math.isclose(loss_np, loss_nb, rel_tol=1e-10), f"Loss mismatch at h={h}"
-        assert math.isclose(grad_np, grad_nb, rel_tol=1e-10), f"Gradient mismatch at h={h}"
-        assert math.isclose(hess_np, hess_nb, rel_tol=1e-10), f"Hessian mismatch at h={h}"
-        assert math.isclose(loss_np, score_nb, rel_tol=1e-10), f"Score-only mismatch at h={h}"
+        assert math.isclose(grad_np, grad_nb, rel_tol=1e-10), (
+            f"Gradient mismatch at h={h}"
+        )
+        assert math.isclose(hess_np, hess_nb, rel_tol=1e-10), (
+            f"Hessian mismatch at h={h}"
+        )
+        assert math.isclose(loss_np, score_nb, rel_tol=1e-10), (
+            f"Score-only mismatch at h={h}"
+        )
 
 
 def test_nw_bandwidth_mv_matches_grid_search() -> None:
@@ -136,8 +147,12 @@ def test_nw_bandwidth_mv_matches_grid_search() -> None:
 
         score_newton = loocv_mse_mv(X, y, h_newton, "gauss")[0]
 
-        assert score_newton <= min_score_grid + 1e-10, f"Newton should find <= grid score at seed {seed}"
-        assert abs(h_newton - h_grid) / h_grid < 0.15, f"Bandwidth diff > 15% at seed {seed}"
+        assert score_newton <= min_score_grid + 1e-10, (
+            f"Newton should find <= grid score at seed {seed}"
+        )
+        assert abs(h_newton - h_grid) / h_grid < 0.15, (
+            f"Bandwidth diff > 15% at seed {seed}"
+        )
 
 
 def test_nw_bandwidth_mv_newton_vs_numba_consistency() -> None:

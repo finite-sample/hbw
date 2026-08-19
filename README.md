@@ -37,12 +37,14 @@ h = kde_bandwidth(x_large, max_n=5000, seed=42)  # Uses 5000 random points
 
 # Multivariate KDE (2D example)
 from hbw import kde_bandwidth_mv
+
 X = np.random.randn(500, 2)
 h = kde_bandwidth_mv(X)
 print(f"Optimal 2D KDE bandwidth: {h:.4f}")
 
 # Multivariate NW regression (2D predictors)
 from hbw import nw_bandwidth_mv
+
 X = np.random.randn(500, 2)
 y = np.sin(X[:, 0]) + 0.5 * X[:, 1] + 0.3 * np.random.randn(500)
 h = nw_bandwidth_mv(X, y)

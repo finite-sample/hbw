@@ -4,35 +4,27 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 6 * * 1"  # weekly: surface ecosystem drift on quiet repos
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.13"]
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Lint with ruff
-        run: uv run ruff check .
-
-      - name: Type check with mypy
-        run: uv run mypy hbw/
-
-      - name: Check docstrings with pydoclint
-        run: uv run pydoclint hbw/
-
-      - name: Check dead code with vulture
-        run: uv run vulture hbw/
-
-      - name: Run tests
-        run: uv run pytest
+  ci:
+    uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
+    with:
+      # The canon default matrix starts at 3.11, which this package does not
+      # support; numba is the ceiling constraint and 0.67 reaches 3.14.
+      python-versions: '["3.12", "3.14"]'
+      wheel-import: hbw
+      # Measured 47%. The floor is low because coverage.py cannot see inside
+      # numba's JIT-compiled kernels -- _numba_kde.py and _numba_nw.py report
+      # 7-9% while tests/test_numba.py does exercise them. The pure-Python
+      # layer that coverage can see sits at 94-100%.
+      coverage-floor: 46
+      run-preen: true

@@ -71,7 +71,9 @@ def _grad_converged(g: float, h: float, f: float, hess: float, tol: float) -> bo
 def _bandwidth_floor(h_reference: float, ratio: float = 1e-6) -> float:
     """Return a positive floor that scales with the bandwidth problem."""
     if not np.isfinite(h_reference) or h_reference <= 0.0:
-        raise ValueError(f"initial bandwidth must be finite and positive, got {h_reference!r}")
+        raise ValueError(
+            f"initial bandwidth must be finite and positive, got {h_reference!r}"
+        )
     return max(ratio * h_reference, np.nextafter(0.0, 1.0))
 
 
@@ -136,7 +138,8 @@ def _line_search(
         n_forward: Maximum number of step doublings.
 
     Returns:
-        tuple[float, float] | None: The accepted ``(bandwidth, score)``, or None if no decrease was found.
+        tuple[float, float] | None: The accepted ``(bandwidth, score)``, or None
+            if no decrease was found.
     """
     h_new = max(h + step, h_floor)
     f_new = score_at(h_new)
@@ -183,7 +186,8 @@ def _newton_armijo(
         kernel: Kernel name.
         tol: Relative convergence tolerance on the scaled gradient ``|g| * h / |f|``.
         max_iter: Maximum Newton iterations.
-        score_only: Optional score-only function for efficient backtracking. If None, uses objective(...)[0].
+        score_only: Optional score-only function for efficient backtracking. If
+            None, uses objective(...)[0].
 
     Returns:
         float: Optimal bandwidth.
@@ -191,8 +195,12 @@ def _newton_armijo(
 
     def _eval_score(h: float) -> float:
         if score_only is not None:
-            return score_only(x, h, kernel) if y is None else score_only(x, y, h, kernel)
-        return objective(x, h, kernel)[0] if y is None else objective(x, y, h, kernel)[0]
+            return (
+                score_only(x, h, kernel) if y is None else score_only(x, y, h, kernel)
+            )
+        return (
+            objective(x, h, kernel)[0] if y is None else objective(x, y, h, kernel)[0]
+        )
 
     def _eval_full(h: float) -> tuple[float, float, float]:
         return objective(x, h, kernel) if y is None else objective(x, y, h, kernel)

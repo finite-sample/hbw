@@ -1,28 +1,46 @@
 name: CodeQL
 
+# Not part of py-canon — canon's security coverage is ruff's `S` (bandit) rules
+# over the package plus zizmor over these workflows. This file is kept as an
+# extra; delete it if you would rather not maintain it.
+#
+# The action refs are hash-pinned because canon's CI runs
+# `zizmor --min-severity high`, whose blanket policy rejects tag refs, and this
+# file was the only source of findings in the repo.
+#
+# `push` is scoped to main: a push to a Dependabot branch produced a SARIF
+# upload configuration error on every run, because code-scanning results cannot
+# be uploaded for a branch owned by the bot.
+
 on:
   push:
+    branches: [main]
   pull_request:
   schedule:
     - cron: '0 0 * * 0'
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
+      contents: read
       security-events: write
 
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'python' ]
+        language: ['python']
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v7
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: ${{ matrix.language }}
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3
+        with:
+          languages: ${{ matrix.language }}
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3

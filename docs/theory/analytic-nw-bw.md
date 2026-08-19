@@ -1,4 +1,4 @@
-### Analytic Newton–Hessian for Nadaraya–Watson Bandwidth Selection
+# Analytic Newton–Hessian for Nadaraya–Watson Bandwidth Selection
 
 **1. Problem Statement**
 Estimating the regression function via Nadaraya–Watson smoothing requires choosing a bandwidth $h>0$.  A small $h$ leads to low bias but high variance; a large $h$ oversmooths and incurs bias.  Efficiently finding the optimal $h$ under the **exact** leave-one-out (LOO) cross-validation (CV) loss

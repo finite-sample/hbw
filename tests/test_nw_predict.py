@@ -80,7 +80,11 @@ class TestNWPredictMV:
     def test_nw_predict_mv_out_of_sample(self):
         rng = np.random.default_rng(42)
         data_train = rng.standard_normal((300, 2))
-        y_train = np.sin(data_train[:, 0]) + 0.5 * data_train[:, 1] + 0.1 * rng.standard_normal(300)
+        y_train = (
+            np.sin(data_train[:, 0])
+            + 0.5 * data_train[:, 1]
+            + 0.1 * rng.standard_normal(300)
+        )
         data_test = np.array([[0.0, 0.0], [1.0, 0.5], [-1.0, -0.5]])
 
         h = nw_bandwidth_mv(data_train, y_train, seed=123)

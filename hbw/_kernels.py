@@ -169,7 +169,9 @@ def _biweight_conv_p(u: NDArray[Any]) -> NDArray[Any]:
     absu = np.abs(u)
     mask = absu <= 2
     uu = u * u
-    poly = 15 * u * (-3 * absu**7 + 56 * absu**5 - 560 * absu**3 + 896 * uu - 512) / 3584
+    poly = (
+        15 * u * (-3 * absu**7 + 56 * absu**5 - 560 * absu**3 + 896 * uu - 512) / 3584
+    )
     return _poly_mask(u, mask, poly)
 
 
@@ -181,7 +183,13 @@ def _biweight_conv_pp(u: NDArray[Any]) -> NDArray[Any]:
     absu = np.abs(u)
     mask = absu <= 2
     uu = u * u
-    poly = -45 * absu**7 / 448 + 45 * absu**5 / 32 - 75 * absu**3 / 8 + 45 * uu / 4 - 15 / 7
+    poly = (
+        -45 * absu**7 / 448
+        + 45 * absu**5 / 32
+        - 75 * absu**3 / 8
+        + 45 * uu / 4
+        - 15 / 7
+    )
     return _poly_mask(u, mask, poly)
 
 
@@ -229,7 +237,8 @@ def _triweight_conv(u: NDArray[Any]) -> NDArray[Any]:
 def _triweight_conv_p(u: NDArray[Any]) -> NDArray[Any]:
     """First derivative of triweight kernel convolution.
 
-    Formula: 35u(-5|u|¹¹ + 132|u|⁹ - 1584|u|⁷ + 14784|u|⁵ - 25344u⁴ + 22528u² - 12288) / 135168
+    Formula: 35u(-5|u|¹¹ + 132|u|⁹ - 1584|u|⁷ + 14784|u|⁵
+             - 25344u⁴ + 22528u² - 12288) / 135168
     """
     absu = np.abs(u)
     mask = absu <= 2
@@ -298,7 +307,9 @@ def _cosine_conv(u: NDArray[Any]) -> NDArray[Any]:
     absu = np.abs(u)
     mask = absu <= 2
     poly = (
-        np.pi / 32 * (np.pi * (2 - absu) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
+        np.pi
+        / 32
+        * (np.pi * (2 - absu) * np.cos(np.pi * absu / 2) + 2 * np.sin(np.pi * absu / 2))
     )
     return _poly_mask(u, mask, poly)
 

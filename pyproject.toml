@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
 
 [project]
 name = "hbw"
@@ -8,6 +8,7 @@ version = "0.6.0"
 description = "Fast kernel bandwidth selection via analytic Hessian Newton optimization"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 authors = [{ name = "Gaurav Sood", email = "gsood07@gmail.com" }]
 keywords = [
@@ -22,17 +23,13 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Typing :: Typed",
 ]
 dependencies = ["numpy>=2.4", "numba>=0.59"]
-
-[project.optional-dependencies]
-dev = ["pytest>=8.0", "mypy>=1.10", "ruff>=0.4", "pydoclint>=0.5", "vulture>=2.11"]
-docs = ["sphinx>=7.0", "furo", "sphinx-copybutton", "sphinx-autodoc-typehints"]
 
 [project.urls]
 Homepage = "https://github.com/finite-sample/hbw"
@@ -40,71 +37,92 @@ Documentation = "https://finite-sample.github.io/hbw"
 Repository = "https://github.com/finite-sample/hbw"
 Issues = "https://github.com/finite-sample/hbw/issues"
 
-[tool.hatch.build.targets.wheel]
-packages = ["hbw"]
+[tool.uv.build-backend]
+module-name = "hbw"
+module-root = ""
 
-[tool.hatch.build.targets.sdist]
-only-include = ["hbw", "README.md", "LICENSE", "pyproject.toml"]
+[dependency-groups]
+dev = [
+    "ruff>=0.14",
+    "pyright>=1.1.390",
+    "pydoclint>=0.5",
+    { include-group = "test" },
+]
+test = [
+    "pytest>=8",
+    "pytest-cov>=6",
+    # test_newton.py checks the analytic Newton step against a black-box
+    # optimiser, so scipy is a test requirement rather than a dev convenience:
+    # the wheel job installs only this group.
+    "scipy>=1.17.1",
+    # The Monte Carlo gates in tests/test_bandwidth_statistics.py. A git
+    # reference, so it stays in dependency-groups and out of the published
+    # extras: PyPI rejects direct URL references in project metadata.
+    "simcheck @ git+https://github.com/finite-sample/simcheck",
+]
+docs = [
+    "sphinx>=8",
+    "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
+    "furo",
+    "myst-parser",
+    "sphinx-copybutton",
+]
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py312"
-extend-exclude = ["*.ipynb", "ms/", "tests/", "benchmarks/"]
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "I",
-    "UP",
-    "B",
-    "SIM",
-    "N",
-    "W",
-    "D",
-    "ANN",
-    "RUF",
-]
-ignore = ["E501", "N806", "D100", "D104", "ANN401"]
+external = ["DOC"]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF", "PTH", "RET", "PIE", "FURB", "PERF", "DTZ", "LOG", "G", "TC", "FLY", "RSE", "SLOT", "FA", "A", "EXE", "ICN", "PGH", "PLE", "ARG", "SLF", "ANN"]
+# D203/D213: the google convention the fleet standard picks. W191/D206/D300:
+# ruff's own docs list these as always incompatible with `ruff format`, which
+# the standard also runs. ANN401: `Any` is the honest annotation for the
+# **kwargs this package forwards to numpy.
+ignore = ["D203", "D213", "W191", "D206", "D300", "ANN401"]
 
 [tool.ruff.lint.pydocstyle]
-# The fleet standard; see ../preen.
 convention = "google"
 
-[tool.mypy]
-python_version = "3.12"
-warn_unused_configs = true
-disallow_untyped_defs = true
-ignore_missing_imports = true
+[tool.ruff.lint.per-file-ignores]
+# N803/N806: this package is a transcription of the derivations in ms/paper.tex,
+# where K is the kernel, K' and K'' its derivatives, S the smoother matrix, U
+# the scaled distance and H the bandwidth matrix. Lowercasing them would sever
+# the correspondence a reader checks the code against, and `k` already means
+# something else (an index) in the same functions.
+"hbw/**" = ["N803", "N806"]
+# S101/ARG/SLF/D: asserts, unused fixture arguments and private-member access
+# are how tests are written. ANN: a test function's signature carries no
+# information a reader or a type checker needs. S311: the `random` module here
+# seeds reproducible fixtures, not secrets.
+"tests/**" = ["S101", "D", "ARG", "SLF", "ANN", "N803", "N806", "S311"]
+"docs/**" = ["D"]
+# The paper's figure and table generators and the benchmark harness are
+# scripts, not library code: printing is their output, and they share the
+# library's mathematical notation.
+"ms/**" = ["T201", "D", "ANN", "N803", "N806"]
+"benchmarks/**" = ["T201", "D", "ANN", "N803", "N806"]
 
 [tool.pydoclint]
 style = "google"
-check-return-types = false
-check-yield-types = true
 arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+allow-init-docstring = true
+exclude = '\.venv|tests|docs'
+check-yield-types = true
 arg-type-hints-in-signature = true
 skip-checking-raises = true
 
-[tool.vulture]
-paths = ["hbw"]
-min_confidence = 80
-
-[tool.deptry]
-extend_exclude = ["examples", "ms"]
-ignore = ["DEP002"]
+[tool.pyright]
+include = ["hbw"]
+typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[dependency-groups]
-dev = [
-    "scipy>=1.17.1",
-    { include-group = "test" },
-]
-test = [
-    # The Monte Carlo gates in tests/test_bandwidth_statistics.py. A git
-    # reference, so it stays in dependency-groups and out of the published
-    # extras: PyPI rejects direct URL references in project metadata. Reached
-    # through `dev` because that is the group CI syncs.
-    "simcheck @ git+https://github.com/finite-sample/simcheck",
-]
+[tool.coverage.run]
+source = ["hbw"]
+
+[tool.preen]

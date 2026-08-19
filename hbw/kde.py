@@ -91,7 +91,9 @@ def lscv_grad(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, 
     return score, grad
 
 
-def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float, float]:
+def lscv(
+    x: NDArray[Any], h: float, kernel: str = "gauss"
+) -> tuple[float, float, float]:
     """Compute LSCV score, gradient, and Hessian for KDE bandwidth selection.
 
     Args:
@@ -130,19 +132,21 @@ def lscv(x: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float
     return score, grad, float(hess)
 
 
-def _lscv_numba_wrapper(x: NDArray[Any], h: float, kernel: str) -> tuple[float, float, float]:
+def _lscv_numba_wrapper(
+    x: NDArray[Any], h: float, kernel: str
+) -> tuple[float, float, float]:
     """Wrap numba functions to match numpy API signature."""
     if kernel == "gauss":
         return lscv_numba_gauss(x, h)
-    elif kernel == "epan":
+    if kernel == "epan":
         return lscv_numba_epan(x, h)
-    elif kernel == "unif":
+    if kernel == "unif":
         return lscv_numba_unif(x, h)
-    elif kernel == "biweight":
+    if kernel == "biweight":
         return lscv_numba_biweight(x, h)
-    elif kernel == "triweight":
+    if kernel == "triweight":
         return lscv_numba_triweight(x, h)
-    elif kernel == "cosine":
+    if kernel == "cosine":
         return lscv_numba_cosine(x, h)
     raise ValueError(f"Numba not available for kernel {kernel!r}")
 
@@ -151,15 +155,15 @@ def _lscv_score_numba_wrapper(x: NDArray[Any], h: float, kernel: str) -> float:
     """Wrap numba score functions to match numpy API signature."""
     if kernel == "gauss":
         return lscv_score_numba_gauss(x, h)
-    elif kernel == "epan":
+    if kernel == "epan":
         return lscv_score_numba_epan(x, h)
-    elif kernel == "unif":
+    if kernel == "unif":
         return lscv_score_numba_unif(x, h)
-    elif kernel == "biweight":
+    if kernel == "biweight":
         return lscv_score_numba_biweight(x, h)
-    elif kernel == "triweight":
+    if kernel == "triweight":
         return lscv_score_numba_triweight(x, h)
-    elif kernel == "cosine":
+    if kernel == "cosine":
         return lscv_score_numba_cosine(x, h)
     raise ValueError(f"Numba not available for kernel {kernel!r}")
 
@@ -180,7 +184,8 @@ def kde_bandwidth(
         x: Sample data (1D array-like).
         kernel: Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
         h0: Initial bandwidth guess. If None, uses Silverman's rule.
-        max_n: Maximum sample size for optimization. If len(x) > max_n, a random subsample is used. Set to None to disable subsampling.
+        max_n: Maximum sample size for optimization. If len(x) > max_n, a random
+            subsample is used. Set to None to disable subsampling.
         seed: Random seed for reproducible subsampling.
 
     Returns:
@@ -188,12 +193,15 @@ def kde_bandwidth(
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import kde_bandwidth
         >>> x = np.random.randn(1000)
         >>> h = kde_bandwidth(x)
     """
     x_arr = np.asarray(x, dtype=float).ravel()
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     rng = np.random.default_rng(seed)
     x_opt, _ = _subsample(x_arr, None, max_n, rng)
@@ -211,7 +219,9 @@ def kde_bandwidth(
     )
 
 
-def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float, float, float]:
+def lscv_mv(
+    data: NDArray[Any], h: float, kernel: str = "gauss"
+) -> tuple[float, float, float]:
     """Compute LSCV score, gradient, and Hessian for multivariate KDE.
 
     Uses product kernel with isotropic bandwidth h across all dimensions.
@@ -241,7 +251,9 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
     sum_K2_ratio = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
-            ratio = np.where(K2_vals[:, :, k] != 0, K2p_vals[:, :, k] / K2_vals[:, :, k], 0)
+            ratio = np.where(
+                K2_vals[:, :, k] != 0, K2p_vals[:, :, k] / K2_vals[:, :, k], 0
+            )
         sum_K2_ratio += U[:, :, k] * ratio
     S_F = (K2_prod * (d + sum_K2_ratio)).sum()
 
@@ -250,7 +262,9 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
     sum_K_ratio = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
-            ratio = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
+            ratio = np.where(
+                K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0
+            )
         sum_K_ratio += U[:, :, k] * ratio
     S_K_matrix = K_prod * (d + sum_K_ratio)
     S_K = S_K_matrix.sum() - np.trace(S_K_matrix)
@@ -268,10 +282,16 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
     d2_K2 = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
-            r1 = np.where(K2_vals[:, :, k] != 0, K2p_vals[:, :, k] / K2_vals[:, :, k], 0)
-            r2 = np.where(K2_vals[:, :, k] != 0, K2pp_vals[:, :, k] / K2_vals[:, :, k], 0)
+            r1 = np.where(
+                K2_vals[:, :, k] != 0, K2p_vals[:, :, k] / K2_vals[:, :, k], 0
+            )
+            r2 = np.where(
+                K2_vals[:, :, k] != 0, K2pp_vals[:, :, k] / K2_vals[:, :, k], 0
+            )
         d2_K2 += U[:, :, k] ** 2 * (r2 - r1 * r1)
-    S_F2 = (K2_prod * ((d + 1) * d + 2 * (d + 1) * sum_K2_ratio + sum_K2_ratio**2 + d2_K2)).sum()
+    S_F2 = (
+        K2_prod * ((d + 1) * d + 2 * (d + 1) * sum_K2_ratio + sum_K2_ratio**2 + d2_K2)
+    ).sum()
 
     d2_K = np.zeros((n, n))
     for k in range(d):
@@ -279,7 +299,9 @@ def lscv_mv(data: NDArray[Any], h: float, kernel: str = "gauss") -> tuple[float,
             r1 = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
             r2 = np.where(K_vals[:, :, k] != 0, Kpp_vals[:, :, k] / K_vals[:, :, k], 0)
         d2_K += U[:, :, k] ** 2 * (r2 - r1 * r1)
-    S_K2_matrix = K_prod * ((d + 1) * d + 2 * (d + 1) * sum_K_ratio + sum_K_ratio**2 + d2_K)
+    S_K2_matrix = K_prod * (
+        (d + 1) * d + 2 * (d + 1) * sum_K_ratio + sum_K_ratio**2 + d2_K
+    )
     S_K2 = S_K2_matrix.sum() - np.trace(S_K2_matrix)
 
     hess = S_F2 / (n**2 * h ** (d + 2)) - 2 * S_K2 / (n * (n - 1) * h ** (d + 2))
@@ -311,7 +333,9 @@ def _newton_armijo_mv(
         step = _newton_step(g, hess, h)
         if step == 0.0:
             break
-        accepted = _line_search(lambda hh: lscv_mv(data, hh, kernel)[0], h, step, f, h_floor)
+        accepted = _line_search(
+            lambda hh: lscv_mv(data, hh, kernel)[0], h, step, f, h_floor
+        )
         if accepted is None:
             break
         h = accepted[0]
@@ -324,7 +348,7 @@ def _newton_armijo_mv_numba(
     tol: float = 1e-5,
     max_iter: int = 15,
 ) -> float:
-    """Run Newton-Armijo optimization for multivariate bandwidth selection with Numba."""
+    """Run Numba Newton-Armijo optimization for multivariate bandwidth selection."""
     h = h0
     h_floor = _bandwidth_floor(h0)
     for _ in range(max_iter):
@@ -334,7 +358,9 @@ def _newton_armijo_mv_numba(
         step = _newton_step(g, hess, h)
         if step == 0.0:
             break
-        accepted = _line_search(lambda hh: lscv_mv_numba_gauss(data, hh)[0], h, step, f, h_floor)
+        accepted = _line_search(
+            lambda hh: lscv_mv_numba_gauss(data, hh)[0], h, step, f, h_floor
+        )
         if accepted is None:
             break
         h = accepted[0]
@@ -353,13 +379,15 @@ def kde_evaluate(
         x_train: Training sample data (1D array-like).
         x_eval: Points at which to evaluate the density (1D array-like).
         h: Bandwidth (obtained from kde_bandwidth).
-        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight",
+            "triweight", or "cosine".
 
     Returns:
         Estimated density values at x_eval locations.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import kde_bandwidth, kde_evaluate
         >>> x = np.random.randn(1000)
         >>> h = kde_bandwidth(x)
         >>> x_grid = np.linspace(-3, 3, 100)
@@ -376,15 +404,16 @@ def kde_evaluate(
     x_ev = np.asarray(x_eval, dtype=float).ravel()
 
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     K, _, _, _, _, _ = _KERNELS[kernel]
     n = len(x_tr)
 
     u = (x_ev[:, None] - x_tr[None, :]) / h
-    density = K(u).sum(axis=1) / (n * h)
 
-    return density
+    return K(u).sum(axis=1) / (n * h)
 
 
 def kde_evaluate_mv(
@@ -393,22 +422,27 @@ def kde_evaluate_mv(
     h: float,
     kernel: str = "gauss",
 ) -> NDArray[Any]:
-    """Evaluate multivariate kernel density estimate at given points using product kernel.
+    """Evaluate multivariate kernel density estimate using a product kernel.
 
     Args:
         data_train: Training sample data, shape (n_train, d).
         data_eval: Points at which to evaluate the density, shape (n_eval, d).
-        h: Bandwidth (scalar, applied to all dimensions; obtained from kde_bandwidth_mv).
-        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+        h: Bandwidth (scalar, applied to all dimensions; obtained from
+            kde_bandwidth_mv).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight",
+            "triweight", or "cosine".
 
     Returns:
         Estimated density values at data_eval locations.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import kde_bandwidth_mv, kde_evaluate_mv
         >>> data = np.random.randn(500, 2)
         >>> h = kde_bandwidth_mv(data)
-        >>> data_grid = np.column_stack([np.linspace(-3, 3, 50), np.linspace(-3, 3, 50)])
+        >>> data_grid = np.column_stack(
+        ...     [np.linspace(-3, 3, 50), np.linspace(-3, 3, 50)]
+        ... )
         >>> density = kde_evaluate_mv(data, data_grid, h)
 
     Notes:
@@ -433,10 +467,13 @@ def kde_evaluate_mv(
         raise ValueError(f"data_eval must be 2D array, got shape {data_ev.shape}")
     if data_tr.shape[1] != data_ev.shape[1]:
         raise ValueError(
-            f"data_train and data_eval must have same number of dimensions, got {data_tr.shape[1]} and {data_ev.shape[1]}"
+            f"data_train and data_eval must have same number of dimensions, "
+            f"got {data_tr.shape[1]} and {data_ev.shape[1]}"
         )
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     K, _, _, _, _, _ = _KERNELS[kernel]
     n = len(data_tr)
@@ -446,9 +483,7 @@ def kde_evaluate_mv(
     K_vals = K(U)
     K_prod = np.prod(K_vals, axis=2)
 
-    density = K_prod.sum(axis=1) / (n * h**d)
-
-    return density
+    return K_prod.sum(axis=1) / (n * h**d)
 
 
 def kde_bandwidth_mv(
@@ -469,15 +504,19 @@ def kde_bandwidth_mv(
         data: Sample data, shape (n, d) where n is samples and d is dimension.
         kernel: Kernel function: "gauss", "epan", or "unif".
         h0: Initial bandwidth guess. If None, uses Scott's rule.
-        max_n: Maximum sample size for optimization. If n > max_n, a random subsample is used. Set to None to disable subsampling.
+        max_n: Maximum sample size for optimization. If n > max_n, a random
+            subsample is used. Set to None to disable subsampling.
         seed: Random seed for reproducible subsampling.
-        standardize: If True, standardize each dimension to unit variance before bandwidth selection.
+        standardize: If True, standardize each dimension to unit variance
+            before bandwidth selection.
 
     Returns:
-        float: Optimal bandwidth that minimizes the LSCV criterion. If standardize=True, this is the bandwidth for the standardized data.
+        float: Optimal bandwidth that minimizes the LSCV criterion. If
+            standardize=True, this is the bandwidth for the standardized data.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import kde_bandwidth_mv
         >>> data = np.random.randn(500, 2)
         >>> h = kde_bandwidth_mv(data)
     """
@@ -489,10 +528,13 @@ def kde_bandwidth_mv(
 
     n, d = data_arr.shape
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
     if d > 4:
         warnings.warn(
-            f"Dimension d={d} is high; KDE becomes unreliable due to curse of dimensionality",
+            f"Dimension d={d} is high; KDE becomes unreliable due to "
+            "curse of dimensionality",
             stacklevel=2,
         )
 

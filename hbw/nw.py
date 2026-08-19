@@ -48,7 +48,7 @@ def _nw_weights(
         w1 = base * (u * u - 1) / h
         w2 = base * (u**4 - 5 * u * u + 2) / (h * h)
         return base, w1, w2
-    elif kernel == "epan":
+    if kernel == "epan":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -58,7 +58,7 @@ def _nw_weights(
         w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
         w2[mask] = 1.5 * (1 - 6 * uu[mask]) / (h**3)
         return w, w1, w2
-    elif kernel == "unif":
+    if kernel == "unif":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w[mask] = 0.5 / h
@@ -67,7 +67,7 @@ def _nw_weights(
         w1[mask] = -0.5 / (h * h)
         w2[mask] = 1.0 / (h**3)
         return w, w1, w2
-    elif kernel == "biweight":
+    if kernel == "biweight":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -78,7 +78,7 @@ def _nw_weights(
         w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
         w2[mask] = (15 / 8) * (1 - 12 * uu[mask] + 15 * uu[mask] ** 2) / (h**3)
         return w, w1, w2
-    elif kernel == "triweight":
+    if kernel == "triweight":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -88,10 +88,12 @@ def _nw_weights(
         w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
         w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
         w2[mask] = (
-            (35 / 16) * (1 - 18 * uu[mask] + 45 * uu[mask] ** 2 - 28 * uu[mask] ** 3) / (h**3)
+            (35 / 16)
+            * (1 - 18 * uu[mask] + 45 * uu[mask] ** 2 - 28 * uu[mask] ** 3)
+            / (h**3)
         )
         return w, w1, w2
-    elif kernel == "cosine":
+    if kernel == "cosine":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -101,15 +103,19 @@ def _nw_weights(
         sin_val = np.sin(np.pi * u / 2)
         pi = np.pi
         w[mask] = (pi / 4) * cos_val[mask] / h
-        w1[mask] = (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
+        w1[mask] = (
+            (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
+        )
         w2[mask] = (
             (pi / 4)
-            * ((2 - pi**2 * uu[mask] / 4) * cos_val[mask] - 2 * pi * u[mask] * sin_val[mask])
+            * (
+                (2 - pi**2 * uu[mask] / 4) * cos_val[mask]
+                - 2 * pi * u[mask] * sin_val[mask]
+            )
             / (h**3)
         )
         return w, w1, w2
-    else:
-        raise ValueError(f"Unknown kernel: {kernel}")
+    raise ValueError(f"Unknown kernel: {kernel}")
 
 
 def loocv_mse_score(
@@ -179,7 +185,7 @@ def _nw_weights_grad(
         base = np.exp(-0.5 * u * u) / (h * _SQRT_2PI)
         w1 = base * (u * u - 1) / h
         return base, w1
-    elif kernel == "epan":
+    if kernel == "epan":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -187,14 +193,14 @@ def _nw_weights_grad(
         w[mask] = 0.75 * (1 - uu[mask]) / h
         w1[mask] = 0.75 * (-1 + 3 * uu[mask]) / (h * h)
         return w, w1
-    elif kernel == "unif":
+    if kernel == "unif":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w[mask] = 0.5 / h
         w1 = np.zeros_like(u, dtype=float)
         w1[mask] = -0.5 / (h * h)
         return w, w1
-    elif kernel == "biweight":
+    if kernel == "biweight":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -203,7 +209,7 @@ def _nw_weights_grad(
         w[mask] = (15 / 16) * one_minus_uu[mask] ** 2 / h
         w1[mask] = (15 / 16) * one_minus_uu[mask] * (5 * uu[mask] - 1) / (h * h)
         return w, w1
-    elif kernel == "triweight":
+    if kernel == "triweight":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -212,7 +218,7 @@ def _nw_weights_grad(
         w[mask] = (35 / 32) * one_minus_uu[mask] ** 3 / h
         w1[mask] = (35 / 32) * one_minus_uu[mask] ** 2 * (7 * uu[mask] - 1) / (h * h)
         return w, w1
-    elif kernel == "cosine":
+    if kernel == "cosine":
         mask = np.abs(u) <= 1
         w = np.zeros_like(u, dtype=float)
         w1 = np.zeros_like(u, dtype=float)
@@ -220,10 +226,11 @@ def _nw_weights_grad(
         sin_val = np.sin(np.pi * u / 2)
         pi = np.pi
         w[mask] = (pi / 4) * cos_val[mask] / h
-        w1[mask] = (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
+        w1[mask] = (
+            (pi / 4) * (-cos_val[mask] + (pi * u[mask] / 2) * sin_val[mask]) / (h * h)
+        )
         return w, w1
-    else:
-        raise ValueError(f"Unknown kernel: {kernel}")
+    raise ValueError(f"Unknown kernel: {kernel}")
 
 
 def loocv_mse_grad(
@@ -282,7 +289,8 @@ def loocv_mse(
         kernel: Kernel name: "gauss" or "epan".
 
     Returns:
-        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE objective.
+        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE
+            objective.
     """
     n = len(x)
     u = (x[:, None] - x[None, :]) / h
@@ -317,32 +325,34 @@ def _loocv_numba_wrapper(
     """Wrap numba functions to match numpy API signature."""
     if kernel == "gauss":
         return loocv_numba_gauss(x, y, h)
-    elif kernel == "epan":
+    if kernel == "epan":
         return loocv_numba_epan(x, y, h)
-    elif kernel == "unif":
+    if kernel == "unif":
         return loocv_numba_unif(x, y, h)
-    elif kernel == "biweight":
+    if kernel == "biweight":
         return loocv_numba_biweight(x, y, h)
-    elif kernel == "triweight":
+    if kernel == "triweight":
         return loocv_numba_triweight(x, y, h)
-    elif kernel == "cosine":
+    if kernel == "cosine":
         return loocv_numba_cosine(x, y, h)
     raise ValueError(f"Numba not available for kernel {kernel!r}")
 
 
-def _loocv_score_numba_wrapper(x: NDArray[Any], y: NDArray[Any], h: float, kernel: str) -> float:
+def _loocv_score_numba_wrapper(
+    x: NDArray[Any], y: NDArray[Any], h: float, kernel: str
+) -> float:
     """Wrap numba score functions to match numpy API signature."""
     if kernel == "gauss":
         return loocv_score_numba_gauss(x, y, h)
-    elif kernel == "epan":
+    if kernel == "epan":
         return loocv_score_numba_epan(x, y, h)
-    elif kernel == "unif":
+    if kernel == "unif":
         return loocv_score_numba_unif(x, y, h)
-    elif kernel == "biweight":
+    if kernel == "biweight":
         return loocv_score_numba_biweight(x, y, h)
-    elif kernel == "triweight":
+    if kernel == "triweight":
         return loocv_score_numba_triweight(x, y, h)
-    elif kernel == "cosine":
+    if kernel == "cosine":
         return loocv_score_numba_cosine(x, y, h)
     raise ValueError(f"Numba not available for kernel {kernel!r}")
 
@@ -365,7 +375,8 @@ def nw_bandwidth(
         y: Response values (1D array-like).
         kernel: Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
         h0: Initial bandwidth guess. If None, uses Silverman's rule on x.
-        max_n: Maximum sample size for optimization. If len(x) > max_n, a random subsample is used. Set to None to disable subsampling.
+        max_n: Maximum sample size for optimization. If len(x) > max_n, a random
+            subsample is used. Set to None to disable subsampling.
         seed: Random seed for reproducible subsampling.
 
     Returns:
@@ -373,6 +384,7 @@ def nw_bandwidth(
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import nw_bandwidth
         >>> x = np.linspace(-2, 2, 200)
         >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
         >>> h = nw_bandwidth(x, y)
@@ -380,9 +392,13 @@ def nw_bandwidth(
     x_arr = np.asarray(x, dtype=float).ravel()
     y_arr = np.asarray(y, dtype=float).ravel()
     if len(x_arr) != len(y_arr):
-        raise ValueError(f"x and y must have same length, got {len(x_arr)} and {len(y_arr)}")
+        raise ValueError(
+            f"x and y must have same length, got {len(x_arr)} and {len(y_arr)}"
+        )
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     rng = np.random.default_rng(seed)
     x_opt, y_opt = _subsample(x_arr, y_arr, max_n, rng)
@@ -417,7 +433,8 @@ def loocv_mse_mv(
         kernel: Kernel name: "gauss".
 
     Returns:
-        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE objective.
+        tuple[float, float, float]: (loss, gradient, hessian) of the LOOCV MSE
+            objective.
     """
     K, Kp, Kpp, _, _, _ = _KERNELS[kernel]
     n, d = data.shape
@@ -437,7 +454,9 @@ def loocv_mse_mv(
     sum_ratio = np.zeros((n, n))
     for k in range(d):
         with np.errstate(divide="ignore", invalid="ignore"):
-            ratio = np.where(K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0)
+            ratio = np.where(
+                K_vals[:, :, k] != 0, Kp_vals[:, :, k] / K_vals[:, :, k], 0
+            )
         sum_ratio += U[:, :, k] * ratio
 
     w1 = -(K_prod / h) * (d + sum_ratio)
@@ -456,7 +475,9 @@ def loocv_mse_mv(
 
     # d2/dh2 [h^-d A] = h^-(d+2) A (d(d+1) + 2(d+1)S + S^2
     #                                + sum_k U_k^2 (K''/K - (K'/K)^2))
-    w2 = (K_prod / (h * h)) * ((d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_ratio**2 + sum_d2)
+    w2 = (K_prod / (h * h)) * (
+        (d + 1) * d + 2.0 * (d + 1) * sum_ratio + sum_ratio**2 + sum_d2
+    )
     np.fill_diagonal(w2, 0.0)
     num2 = w2 @ y
     den2 = w2.sum(axis=1)
@@ -514,7 +535,7 @@ def _newton_armijo_mv_nw_numba(
     tol: float = 1e-5,
     max_iter: int = 15,
 ) -> float:
-    """Run Newton-Armijo optimization for multivariate NW bandwidth selection with Numba."""
+    """Run Numba Newton-Armijo optimization for multivariate NW bandwidths."""
     h = h0
     f_prev = float("inf")
     for _ in range(max_iter):
@@ -551,13 +572,15 @@ def nw_predict(
         y_train: Training response values (1D array-like).
         x_test: Test predictor values where predictions are desired (1D array-like).
         h: Bandwidth (obtained from nw_bandwidth).
-        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight",
+            "triweight", or "cosine".
 
     Returns:
         Predicted values at x_test locations.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import nw_bandwidth, nw_predict
         >>> x = np.linspace(-2, 2, 200)
         >>> y = np.sin(x) + 0.1 * np.random.randn(len(x))
         >>> h = nw_bandwidth(x, y)
@@ -576,10 +599,13 @@ def nw_predict(
 
     if len(x_tr) != len(y_tr):
         raise ValueError(
-            f"x_train and y_train must have same length, got {len(x_tr)} and {len(y_tr)}"
+            f"x_train and y_train must have same length, "
+            f"got {len(x_tr)} and {len(y_tr)}"
         )
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     K, _, _, _, _, _ = _KERNELS[kernel]
 
@@ -609,15 +635,19 @@ def nw_predict_mv(
     Args:
         data_train: Training predictor values, shape (n_train, d).
         y_train: Training response values (1D array of length n_train).
-        data_test: Test predictor values where predictions are desired, shape (n_test, d).
-        h: Bandwidth (scalar, applied to all dimensions; obtained from nw_bandwidth_mv).
-        kernel: Kernel function: "gauss", "epan", "unif", "biweight", "triweight", or "cosine".
+        data_test: Test predictor values where predictions are desired, shape
+            (n_test, d).
+        h: Bandwidth (scalar, applied to all dimensions; obtained from
+            nw_bandwidth_mv).
+        kernel: Kernel function: "gauss", "epan", "unif", "biweight",
+            "triweight", or "cosine".
 
     Returns:
         Predicted values at data_test locations.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import nw_bandwidth_mv, nw_predict_mv
         >>> data = np.random.randn(500, 2)
         >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
         >>> h = nw_bandwidth_mv(data, y)
@@ -647,14 +677,18 @@ def nw_predict_mv(
         raise ValueError(f"data_test must be 2D array, got shape {data_te.shape}")
     if len(data_tr) != len(y_tr):
         raise ValueError(
-            f"data_train and y_train must have same length, got {len(data_tr)} and {len(y_tr)}"
+            f"data_train and y_train must have same length, "
+            f"got {len(data_tr)} and {len(y_tr)}"
         )
     if data_tr.shape[1] != data_te.shape[1]:
         raise ValueError(
-            f"data_train and data_test must have same number of dimensions, got {data_tr.shape[1]} and {data_te.shape[1]}"
+            f"data_train and data_test must have same number of dimensions, "
+            f"got {data_tr.shape[1]} and {data_te.shape[1]}"
         )
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
 
     K, _, _, _, _, _ = _KERNELS[kernel]
 
@@ -693,15 +727,19 @@ def nw_bandwidth_mv(
         y: Response values (1D array of length n).
         kernel: Kernel function: "gauss", "epan", or "unif".
         h0: Initial bandwidth guess. If None, uses Scott's rule.
-        max_n: Maximum sample size for optimization. If n > max_n, a random subsample is used. Set to None to disable subsampling.
+        max_n: Maximum sample size for optimization. If n > max_n, a random
+            subsample is used. Set to None to disable subsampling.
         seed: Random seed for reproducible subsampling.
-        standardize: If True, standardize each predictor dimension to unit variance before bandwidth selection.
+        standardize: If True, standardize each predictor dimension to unit
+            variance before bandwidth selection.
 
     Returns:
-        float: Optimal bandwidth that minimizes the LOOCV MSE criterion. If standardize=True, this is the bandwidth for the standardized data.
+        float: Optimal bandwidth that minimizes the LOOCV MSE criterion. If
+            standardize=True, this is the bandwidth for the standardized data.
 
     Examples:
         >>> import numpy as np
+        >>> from hbw import nw_bandwidth_mv
         >>> data = np.random.randn(500, 2)
         >>> y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * np.random.randn(500)
         >>> h = nw_bandwidth_mv(data, y)
@@ -713,14 +751,19 @@ def nw_bandwidth_mv(
     if data_arr.ndim != 2:
         raise ValueError(f"data must be 2D array, got shape {data_arr.shape}")
     if len(data_arr) != len(y_arr):
-        raise ValueError(f"data and y must have same length, got {len(data_arr)} and {len(y_arr)}")
+        raise ValueError(
+            f"data and y must have same length, got {len(data_arr)} and {len(y_arr)}"
+        )
 
     n, d = data_arr.shape
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}")
+        raise ValueError(
+            f"kernel must be one of {list(_KERNELS.keys())}, got {kernel!r}"
+        )
     if d > 4:
         warnings.warn(
-            f"Dimension d={d} is high; NW regression becomes unreliable due to curse of dimensionality",
+            f"Dimension d={d} is high; NW regression becomes unreliable due to "
+            "curse of dimensionality",
             stacklevel=2,
         )
 

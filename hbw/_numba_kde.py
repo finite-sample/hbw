@@ -1,5 +1,11 @@
 """Numba-accelerated KDE bandwidth selection via fused LSCV computation."""
 
+# numba ships py.typed but re-exports `get_thread_id` without naming it in
+# __all__, so pyright treats every `numba.get_thread_id()` here as a private
+# import. It is numba's documented threading-layer API and exists at runtime;
+# the gap is in numba's own re-export, not in this module.
+# pyright: reportPrivateImportUsage=false
+
 import math
 
 import numba
@@ -220,7 +226,7 @@ def _cosine_all(u: float) -> tuple[float, float, float, float, float, float]:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_gauss(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for Gaussian kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for Gaussian kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -294,7 +300,7 @@ def lscv_score_numba_gauss(x: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_epan(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for Epanechnikov kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for Epanechnikov kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -368,7 +374,7 @@ def lscv_score_numba_epan(x: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_unif(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for uniform kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for uniform kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -441,7 +447,7 @@ def lscv_score_numba_unif(x: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_biweight(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for biweight kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for biweight kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -524,7 +530,7 @@ def lscv_score_numba_biweight(x: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_triweight(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for triweight kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for triweight kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -609,7 +615,7 @@ def lscv_score_numba_triweight(x: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_cosine(x: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LSCV score, gradient, Hessian for cosine kernel using fused loop."""
+    """Fused-loop LSCV score, gradient, Hessian for cosine kernel."""
     n = len(x)
     inv_h = 1.0 / h
     n_threads = numba.get_num_threads()
@@ -731,14 +737,20 @@ def lscv_mv_numba_gauss(data: NDArray, h: float) -> tuple[float, float, float]:
             local_sums[tid, 0] += prod_k2
             local_sums[tid, 1] += prod_k2 * (d + sum_ratio_k2)
             local_sums[tid, 2] += prod_k2 * (
-                (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k2 + sum_ratio_k2 * sum_ratio_k2 + sum_d2_k2
+                (d + 1) * d
+                + 2.0 * (d + 1) * sum_ratio_k2
+                + sum_ratio_k2 * sum_ratio_k2
+                + sum_d2_k2
             )
 
             if i != j:
                 local_sums[tid, 3] += prod_k
                 local_sums[tid, 4] += prod_k * (d + sum_ratio_k)
                 local_sums[tid, 5] += prod_k * (
-                    (d + 1) * d + 2.0 * (d + 1) * sum_ratio_k + sum_ratio_k * sum_ratio_k + sum_d2_k
+                    (d + 1) * d
+                    + 2.0 * (d + 1) * sum_ratio_k
+                    + sum_ratio_k * sum_ratio_k
+                    + sum_d2_k
                 )
 
     sum_K2 = local_sums[:, 0].sum()

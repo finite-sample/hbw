@@ -12,9 +12,18 @@ from scipy.optimize import minimize_scalar
 from scipy.stats import norm
 from scipy.stats import t as t_dist
 
-from hbw import (_KERNELS, kde_bandwidth, kde_bandwidth_mv, loocv_mse,
-                 loocv_mse_score, lscv, lscv_mv, lscv_score,
-                 nw_bandwidth, nw_bandwidth_mv)
+from hbw import (
+    _KERNELS,
+    kde_bandwidth,
+    kde_bandwidth_mv,
+    loocv_mse,
+    loocv_mse_score,
+    lscv,
+    lscv_mv,
+    lscv_score,
+    nw_bandwidth,
+    nw_bandwidth_mv,
+)
 from hbw._numba_kde import lscv_mv_numba_gauss
 from hbw._numba_nw import loocv_score_mv_numba_gauss
 
@@ -102,7 +111,9 @@ DGPS = {
 
 
 def sample_bimodal_mv(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
-    """Multivariate bimodal: mixture of two Gaussians centered at different locations."""
+    """
+    Multivariate bimodal: mixture of two Gaussians centered at different locations.
+    """
     data = np.zeros((n, d))
     mask = rng.random(n) < 0.5
     mean1 = np.ones(d) * -1.5
@@ -297,7 +308,7 @@ def ise_kde_mv(
 ) -> float:
     """Integrated squared error for multivariate KDE via Monte Carlo integration."""
     K = _KERNELS[kernel][0]
-    n, d = data.shape
+    _, d = data.shape
 
     grid_1d = np.linspace(-5, 5, n_grid)
     grids = np.meshgrid(*[grid_1d] * d, indexing="ij")
@@ -564,7 +575,9 @@ def run_mv_kde_simulations(
     return pd.DataFrame(results)
 
 
-def sample_nw_mv(n: int, d: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+def sample_nw_mv(
+    n: int, d: int, rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray]:
     """Multivariate NW: y = sin(x1) + 0.5*x2 + noise."""
     X = rng.normal(0, 1, (n, d))
     y = np.sin(X[:, 0]) + 0.5 * X[:, 1]
@@ -609,7 +622,6 @@ def mse_nw_mv(
     """Test MSE for multivariate NW regression."""
     K = _KERNELS[kernel][0]
     n_test = X_test.shape[0]
-    d = X_train.shape[1]
     preds = []
     for i in range(n_test):
         u = (X_test[i] - X_train) / h
@@ -639,14 +651,22 @@ def run_mv_nw_simulations(
                     X_train, y_train = sample_nw_mv(n, d, rng)
 
                     rng_test = np.random.default_rng(rep + 30000)
-                    X_test, y_test_noisy = sample_nw_mv(500, d, rng_test)
+                    X_test, _ = sample_nw_mv(500, d, rng_test)
                     y_test = np.sin(X_test[:, 0]) + 0.5 * X_test[:, 1]
 
-                    h_grid, ev_grid, t_grid = timed_grid_search_nw_mv(X_train, y_train, kernel)
-                    mse_grid = mse_nw_mv(X_train, y_train, X_test, y_test, h_grid, kernel)
+                    h_grid, ev_grid, t_grid = timed_grid_search_nw_mv(
+                        X_train, y_train, kernel
+                    )
+                    mse_grid = mse_nw_mv(
+                        X_train, y_train, X_test, y_test, h_grid, kernel
+                    )
 
-                    h_newt, ev_newt, t_newt = timed_newton_nw_mv(X_train, y_train, kernel)
-                    mse_newt = mse_nw_mv(X_train, y_train, X_test, y_test, h_newt, kernel)
+                    h_newt, ev_newt, t_newt = timed_newton_nw_mv(
+                        X_train, y_train, kernel
+                    )
+                    mse_newt = mse_nw_mv(
+                        X_train, y_train, X_test, y_test, h_newt, kernel
+                    )
 
                     for method, h, mse, evals, t in [
                         ("Grid", h_grid, mse_grid, ev_grid, t_grid),
@@ -670,8 +690,14 @@ def run_mv_nw_simulations(
 
 
 def plot_mv_nw_comparison(mv_nw_df: pd.DataFrame) -> None:
-    """Plot multivariate NW comparison: MSE and timing by dimension (Gaussian kernel)."""
-    df = mv_nw_df[mv_nw_df["kernel"] == "gauss"] if "kernel" in mv_nw_df.columns else mv_nw_df
+    """
+    Plot multivariate NW comparison: MSE and timing by dimension (Gaussian kernel).
+    """
+    df = (
+        mv_nw_df[mv_nw_df["kernel"] == "gauss"]
+        if "kernel" in mv_nw_df.columns
+        else mv_nw_df
+    )
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
     dims = sorted(df["d"].unique())
@@ -824,7 +850,7 @@ def plot_nw_mse(df: pd.DataFrame) -> None:
 
 def plot_eval_counts(kde_df: pd.DataFrame, nw_df: pd.DataFrame) -> None:
     """Plot evaluation count comparison."""
-    fig, ax = plt.subplots(figsize=(6, 4))
+    _, ax = plt.subplots(figsize=(6, 4))
 
     methods = ["Grid", "Golden", "Newton", "Silverman"]
     kde_means = [kde_df[kde_df["method"] == m]["evals"].mean() for m in methods]
@@ -1048,7 +1074,9 @@ def plot_convergence_trace() -> None:
 
 
 def plot_mv_kde_comparison(mv_df: pd.DataFrame) -> None:
-    """Plot multivariate KDE comparison: ISE and timing by dimension (Gaussian kernel)."""
+    """
+    Plot multivariate KDE comparison: ISE and timing by dimension (Gaussian kernel).
+    """
     df = mv_df[mv_df["kernel"] == "gauss"] if "kernel" in mv_df.columns else mv_df
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -1153,7 +1181,8 @@ def print_summary_tables(
             "total_time_s"
         ].values[0]
         print(
-            f"n={n}: Grid={grid_time:.2f}s, Newton={newton_time:.2f}s, Speedup={grid_time/newton_time:.1f}x"
+            f"n={n}: Grid={grid_time:.2f}s, Newton={newton_time:.2f}s, "
+            f"Speedup={grid_time / newton_time:.1f}x"
         )
 
 

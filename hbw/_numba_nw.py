@@ -1,5 +1,11 @@
 """Numba-accelerated NW regression bandwidth selection via fused LOOCV computation."""
 
+# numba ships py.typed but re-exports `get_thread_id` without naming it in
+# __all__, so pyright treats every `numba.get_thread_id()` here as a private
+# import. It is numba's documented threading-layer API and exists at runtime;
+# the gap is in numba's own re-export, not in this module.
+# pyright: reportPrivateImportUsage=false
+
 import math
 
 import numba
@@ -14,7 +20,7 @@ _PI_2 = _PI / 2
 
 @numba.njit(fastmath=True, parallel=True)
 def loocv_numba_gauss(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for Gaussian kernel using fused loop."""
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for Gaussian kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -115,7 +121,7 @@ def loocv_score_numba_gauss(x: NDArray, y: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def loocv_numba_epan(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for Epanechnikov kernel using fused loop."""
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for Epanechnikov kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -221,7 +227,7 @@ def loocv_score_numba_epan(x: NDArray, y: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def loocv_numba_unif(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for uniform kernel using fused loop."""
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for uniform kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -321,8 +327,10 @@ def loocv_score_numba_unif(x: NDArray, y: NDArray, h: float) -> float:
 
 
 @numba.njit(fastmath=True, parallel=True)
-def loocv_numba_biweight(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for biweight kernel using fused loop."""
+def loocv_numba_biweight(
+    x: NDArray, y: NDArray, h: float
+) -> tuple[float, float, float]:
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for biweight kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -431,8 +439,10 @@ def loocv_score_numba_biweight(x: NDArray, y: NDArray, h: float) -> float:
 
 
 @numba.njit(fastmath=True, parallel=True)
-def loocv_numba_triweight(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for triweight kernel using fused loop."""
+def loocv_numba_triweight(
+    x: NDArray, y: NDArray, h: float
+) -> tuple[float, float, float]:
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for triweight kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -469,7 +479,11 @@ def loocv_numba_triweight(x: NDArray, y: NDArray, h: float) -> tuple[float, floa
 
                 wp = (35.0 / 32.0) * one_minus_u2_sq * (7.0 * u2 - 1.0) / h2
 
-                wpp = (35.0 / 16.0) * (1.0 - 18.0 * u2 + 45.0 * u2 * u2 - 28.0 * u2 * u2 * u2) / h3
+                wpp = (
+                    (35.0 / 16.0)
+                    * (1.0 - 18.0 * u2 + 45.0 * u2 * u2 - 28.0 * u2 * u2 * u2)
+                    / h3
+                )
 
                 yi = y[i]
                 num += w * yi
@@ -543,7 +557,7 @@ def loocv_score_numba_triweight(x: NDArray, y: NDArray, h: float) -> float:
 
 @numba.njit(fastmath=True, parallel=True)
 def loocv_numba_cosine(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
-    """Compute LOOCV-MSE score, gradient, Hessian for cosine kernel using fused loop."""
+    """Fused-loop LOOCV-MSE score, gradient, Hessian for cosine kernel."""
     n = len(x)
     inv_h = 1.0 / h
     h2 = h * h
@@ -581,7 +595,9 @@ def loocv_numba_cosine(x: NDArray, y: NDArray, h: float) -> tuple[float, float, 
                 wp = _PI_4 * (-cos_val + (_PI_2 * u) * sin_val) / h2
 
                 wpp = (
-                    _PI_4 * ((2.0 - _PI * _PI * u2 / 4.0) * cos_val - 2.0 * _PI * u * sin_val) / h3
+                    _PI_4
+                    * ((2.0 - _PI * _PI * u2 / 4.0) * cos_val - 2.0 * _PI * u * sin_val)
+                    / h3
                 )
 
                 yi = y[i]
@@ -653,7 +669,9 @@ def loocv_score_numba_cosine(x: NDArray, y: NDArray, h: float) -> float:
 
 
 @numba.njit(fastmath=True, parallel=True)
-def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
+def loocv_mv_numba_gauss(
+    data: NDArray, y: NDArray, h: float
+) -> tuple[float, float, float]:
     """Compute multivariate LOOCV-MSE for Gaussian product kernel using fused loop."""
     n, d = data.shape
     inv_h = 1.0 / h
@@ -733,7 +751,7 @@ def loocv_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> tuple[float, fl
 
 @numba.njit(fastmath=True, parallel=True)
 def loocv_score_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> float:
-    """Compute multivariate LOOCV-MSE score only (for Armijo backtracking) - Gaussian kernel."""
+    """Compute multivariate LOOCV-MSE score only (Armijo backtracking) - Gaussian."""
     n, d = data.shape
     inv_h = 1.0 / h
     h_d = h**d

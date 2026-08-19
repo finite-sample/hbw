@@ -130,7 +130,9 @@ def test_kde_bandwidth_is_scale_equivariant() -> None:
         h1 = kde_bandwidth(x, kernel=kernel)
         for c in (1e-6, 1e-4, 1e-2, 100.0, 1000.0, 1e5):
             hc = kde_bandwidth(c * x, kernel=kernel)
-            assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
+            assert math.isclose(hc / c, h1, rel_tol=1e-6), (
+                f"{kernel} c={c}: {hc / c} vs {h1}"
+            )
 
 
 def test_nw_bandwidth_is_scale_equivariant() -> None:
@@ -144,7 +146,9 @@ def test_nw_bandwidth_is_scale_equivariant() -> None:
         h1 = nw_bandwidth(x, y, kernel=kernel)
         for c in (1e-6, 1e-4, 1e-2, 100.0, 1000.0, 1e5):
             hc = nw_bandwidth(c * x, y, kernel=kernel)
-            assert math.isclose(hc / c, h1, rel_tol=1e-6), f"{kernel} c={c}: {hc / c} vs {h1}"
+            assert math.isclose(hc / c, h1, rel_tol=1e-6), (
+                f"{kernel} c={c}: {hc / c} vs {h1}"
+            )
 
 
 def test_numba_loocv_score_matches_numpy_when_weights_underflow() -> None:

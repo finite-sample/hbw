@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Adopted the py-canon fleet standard: reusable CI, docs and release workflows,
+  `uv_build` as the build backend, and ruff/pyright in place of mypy and vulture.
+- Docs now build under `sphinx-build -W`, with the theory notes reachable from
+  the index and the docstring examples runnable as doctests.
+
 ## [0.5.0] - 2025-04-04
 
 ### Added

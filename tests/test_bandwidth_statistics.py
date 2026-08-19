@@ -58,13 +58,16 @@ marked where it appears.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
 from simcheck import MonteCarloResult, assert_unbiased, reps_for
 
 from hbw import kde_bandwidth, kde_evaluate, nw_bandwidth, nw_predict
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 # Replicates per sample size, from simcheck's tier: 100 normally, 400 when
 # SIMCHECK_DEEP is set, and whatever SIMCHECK_REPS says beyond that. It was a
@@ -227,7 +230,9 @@ def test_the_regression_bandwidth_shrinks_at_the_theoretical_rate() -> None:
         x = np.sort(rng.uniform(-2.0, 2.0, n))
         return x, np.sin(2.0 * x) + 0.3 * rng.standard_normal(n)
 
-    chosen = _selected_bandwidths(sizes, draw, lambda x, y: nw_bandwidth(x, y, max_n=None))
+    chosen = _selected_bandwidths(
+        sizes, draw, lambda x, y: nw_bandwidth(x, y, max_n=None)
+    )
 
     assert_unbiased(_study(_log_log_slopes(sizes, chosen), -0.2), "nw log-log slope")
 
@@ -258,7 +263,9 @@ def test_the_kde_bandwidth_matches_the_exact_gaussian_optimum(n: int) -> None:
     """
     chosen = np.array(
         [
-            kde_bandwidth(np.random.default_rng(1000 + i).standard_normal(n), max_n=None)
+            kde_bandwidth(
+                np.random.default_rng(1000 + i).standard_normal(n), max_n=None
+            )
             for i in range(REPS)
         ]
     )

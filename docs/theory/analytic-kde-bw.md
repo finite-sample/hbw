@@ -30,7 +30,7 @@ $$
 
 for both the Gaussian and Epanechnikov kernels.  With a scalar gradient/Hessian oracle we run a Newton step with an **Armijo line‑search**:
 
-```pseudo
+```text
 repeat until |Δh| < 1e‑6 or max_iter:
     g  ← ∂LSCV/∂log h        # analytic
     H  ← ∂²LSCV/∂(log h)²    # analytic
@@ -66,7 +66,7 @@ repeat until |Δh| < 1e‑6 or max_iter:
 
 ---
 
-## 4  Key Take‑aways
+## 4  Key Takeaways
 
 * **Accuracy:** Newton matches the ISE of exhaustive grid search to 3–4 decimal places – it finds the exact LSCV minimiser.
 * **Efficiency:** 6–12 evaluations versus 50 (grid) and 22 (golden) ⇒ ≈4–8× compute saving.
@@ -95,5 +95,3 @@ python kde_analytic_hessian.py  # creates results_kde.csv
 
 Requires NumPy ≥1.20 and SciPy ≥1.9.
 Adjust `R`, `ns`, `noises`, or `kernels` at the bottom of the script to extend the grid.
-
----

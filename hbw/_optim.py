@@ -42,7 +42,7 @@ def _grad_converged(g: float, h: float, f: float, hess: float, tol: float) -> bo
     only scale-*equivariant*, not scale-invariant: replacing ``x`` by ``c * x``
     sends the LSCV minimiser to ``c * h`` while its gradient shrinks like
     ``1 / c**2`` (LOOCV-MSE: like ``1 / c``). With a fixed absolute tolerance,
-    data in large units looks converged at the starting guess and the optimiser
+    data in large units looks converged at the starting guess and the optimizer
     returns Silverman's rule untouched. The dimensionless ratio ``|g| * h / |f|``
     is invariant under ``x -> c * x`` for both criteria, so test that instead.
 
@@ -121,7 +121,7 @@ def _line_search(
 
     Known limitation: the accepted point is the last one that improved, which
     can lie past the nearest minimum -- on a multi-modal criterion that is
-    enough to settle in a neighbouring basin. This is why 1-D cosine can land
+    enough to settle in a neighboring basin. This is why 1-D cosine can land
     on a local minimum 0.03% worse in objective than a dense grid. Refining the
     bracket the overshoot leaves behind was tried and rejected: every variant
     needed an absolute floor or tolerance somewhere, which reintroduced the

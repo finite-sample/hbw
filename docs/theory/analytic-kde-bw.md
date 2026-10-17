@@ -14,13 +14,13 @@ where the **bandwidth** \$h>0\$ governs bias–variance trade‑off.  Choosing \
 | ----------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------- |
 | **Rule‑of‑thumb** (Silverman 1986)                    | Plug Gaussian reference into the asymptotic MISE minimiser                      | \$\mathcal O(1)\$             | Fails for skew / heavy‑tail & multimodal data              |
 | **Plug‑in / Pilot** (Sheather–Jones 1991; Botev 2010) | Estimate unknown curvature, insert into asymptotic formula                      | \$\mathcal O(n)\$             | Accurate for large \$n\$; approximate otherwise            |
-| **Cross‑validation**                                  | Minimise finite‑sample risk estimate – likelihood CV or least‑squares CV (LSCV) | \$\mathcal O(n^2)\$ per score | Requires an optimiser – almost always grid / golden search |
+| **Cross‑validation**                                  | Minimize finite‑sample risk estimate – likelihood CV or least‑squares CV (LSCV) | \$\mathcal O(n^2)\$ per score | Requires an optimizer – almost always grid / golden search |
 
-> \*\*Observation \*\* Most work focuses on *better risk criteria*; the optimiser is usually a brute‑force scan (50–100 evaluations).
+> \*\*Observation \*\* Most work focuses on *better risk criteria*; the optimizer is usually a brute‑force scan (50–100 evaluations).
 
 ---
 
-## 2  Newton–Armijo Optimiser with Analytic Hessian
+## 2  Newton–Armijo Optimizer with Analytic Hessian
 
 We derive **closed‑form first *and* second derivatives** of the LSCV score
 
@@ -70,14 +70,14 @@ repeat until |Δh| < 1e‑6 or max_iter:
 
 * **Accuracy:** Newton matches the ISE of exhaustive grid search to 3–4 decimal places – it finds the exact LSCV minimiser.
 * **Efficiency:** 6–12 evaluations versus 50 (grid) and 22 (golden) ⇒ ≈4–8× compute saving.
-* **Kernel‑agnostic:** Same benefit for Gaussian and Epanechnikov – derivations generalise beyond the usual Gaussian case.
+* **Kernel‑agnostic:** Same benefit for Gaussian and Epanechnikov – derivations generalize beyond the usual Gaussian case.
 * **Rule‑of‑thumb bias:** Silverman’s formula is always fastest but consistently sub‑optimal, especially for mixtures and low noise.
 
 ---
 
 ## 5  Related Work & Contribution
 
-| Reference                      | Optimiser         | Criterion                            | Comment                                                     |
+| Reference                      | Optimizer         | Criterion                            | Comment                                                     |
 | ------------------------------ | ----------------- | ------------------------------------ | ----------------------------------------------------------- |
 | Loader 1999; Wand & Jones 1995 | Grid / golden     | LSCV                                 | Standard textbooks – 50–100 score calls                     |
 | Chiu 1992                      | Newton            | **GCV** only, Gaussian kernel        | Different objective; omits Hessian for finite‑sample LSCV   |

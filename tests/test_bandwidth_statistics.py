@@ -1,13 +1,13 @@
 """Does the selected bandwidth behave the way a bandwidth should?
 
-The existing suite establishes that the fast optimiser finds the same objective
+The existing suite establishes that the fast optimizer finds the same objective
 minimum as a dense grid search -- `test_selectors_match_dense_log_grid_objectives`
 compares against an 800-point geometric grid across every kernel. That is the
 right test for what this package claims, which is speed without changing the
 answer, and it is a genuinely strong one.
 
 What it cannot say is whether the answer is any good. A selector that returned a
-constant, or minimised the wrong objective, would agree with a grid search over
+constant, or minimized the wrong objective, would agree with a grid search over
 that same wrong objective exactly. Nothing here reached for a known statistical
 truth, because these tests did not exist: this file is the first simulation study
 in the package.
@@ -35,7 +35,7 @@ Three properties, in decreasing order of how hard they are to fake:
 relative rate of convergence to the optimal bandwidth is only ``n^(-1/10)`` -- and
 this shows up here as an interquartile range of a quarter to two fifths of the
 median, which barely shrinks with n. That is a property of the method, not a
-defect in this implementation, so the tests below characterise the spread rather
+defect in this implementation, so the tests below characterize the spread rather
 than trying to bound it tightly.
 
 **Where the tolerances come from.** Properties 1 and 2 are statements about a
@@ -277,13 +277,13 @@ def test_the_kde_bandwidth_matches_the_exact_gaussian_optimum(n: int) -> None:
 
 
 def test_the_spread_of_the_selection_is_reported_not_bounded_tightly() -> None:
-    """Characterisation: cross-validated bandwidths scatter, and that is normal.
+    """Characterization: cross-validated bandwidths scatter, and that is normal.
 
     Least-squares cross-validation converges to the optimal bandwidth at a
     relative rate of only ``n^(-1/10)``, so the interquartile range stays around
     a quarter to two fifths of the median and barely shrinks. This is a property
     of the method, not of this implementation, and is asserted loosely so that it
-    documents the behaviour without pretending to constrain it.
+    documents the behavior without pretending to constrain it.
 
     What it does catch is a selector that has stopped responding to the data at
     all, which would show a spread of essentially zero.
@@ -291,7 +291,7 @@ def test_the_spread_of_the_selection_is_reported_not_bounded_tightly() -> None:
     Deliberately not a simcheck gate. An interquartile range over a median has no
     population value here and no tractable sampling distribution, so there is
     nothing for a band to be derived from; these two numbers describe observed
-    behaviour and say so, which is a different thing from a tolerance that
+    behavior and say so, which is a different thing from a tolerance that
     pretends to be a threshold.
     """
     sizes = (200, 800)

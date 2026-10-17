@@ -52,7 +52,7 @@ test = [
     "pytest>=8",
     "pytest-cov>=6",
     # test_newton.py checks the analytic Newton step against a black-box
-    # optimiser, so scipy is a test requirement rather than a dev convenience:
+    # optimizer, so scipy is a test requirement rather than a dev convenience:
     # the wheel job installs only this group.
     "scipy>=1.17.1",
     # The Monte Carlo gates in tests/test_bandwidth_statistics.py. A git
@@ -131,3 +131,6 @@ addopts = ["--strict-config", "--strict-markers", "-ra"]
 source = ["hbw"]
 
 [tool.preen]
+
+[tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"

@@ -298,6 +298,9 @@ def lscv_score_numba_gauss(x: NDArray, h: float) -> float:
     return sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
 
 
+# Each kernel is a separate njit function so numba can specialize it; the
+# copies below repeat the Gaussian versions above on purpose.
+# jscpd:ignore-start
 @numba.njit(fastmath=True, parallel=True)
 def lscv_numba_epan(x: NDArray, h: float) -> tuple[float, float, float]:
     """Fused-loop LSCV score, gradient, Hessian for Epanechnikov kernel."""
@@ -687,6 +690,9 @@ def lscv_score_numba_cosine(x: NDArray, h: float) -> float:
     n2 = float(n * n)
     nn1 = float(n * (n - 1))
     return sum_K2 / (n2 * h) - 2.0 * sum_K / (nn1 * h)
+
+
+# jscpd:ignore-end
 
 
 @numba.njit(fastmath=True, parallel=True)

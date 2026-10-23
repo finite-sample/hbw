@@ -119,6 +119,10 @@ def loocv_score_numba_gauss(x: NDArray, y: NDArray, h: float) -> float:
     return local_loss.sum() / n
 
 
+# Each kernel (and the multivariate Gaussian) is a separate njit function so
+# numba can specialize it; the copies below repeat the Gaussian versions above
+# on purpose.
+# jscpd:ignore-start
 @numba.njit(fastmath=True, parallel=True)
 def loocv_numba_epan(x: NDArray, y: NDArray, h: float) -> tuple[float, float, float]:
     """Fused-loop LOOCV-MSE score, gradient, Hessian for Epanechnikov kernel."""
@@ -786,6 +790,9 @@ def loocv_score_mv_numba_gauss(data: NDArray, y: NDArray, h: float) -> float:
         local_loss[tid] += resid * resid
 
     return local_loss.sum() / n
+
+
+# jscpd:ignore-end
 
 
 def warmup() -> None:

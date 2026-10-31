@@ -1,4 +1,4 @@
-# hbw
+# hbw: bandwidth selection for kernel density estimation and regression
 
 [![PyPI](https://img.shields.io/pypi/v/hbw)](https://pypi.org/project/hbw/)
 [![CI](https://github.com/finite-sample/hbw/actions/workflows/ci.yml/badge.svg)](https://github.com/finite-sample/hbw/actions/workflows/ci.yml)

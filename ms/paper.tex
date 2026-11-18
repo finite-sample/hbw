@@ -1,18 +1,16 @@
 \documentclass[11pt]{article}
+\usepackage{working-paper}
 
 % Packages
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,amsthm}
+
+\usepackage{amsmath,amsthm}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{graphicx}
-\usepackage{hyperref}
-\usepackage{natbib}
-\usepackage[margin=1in]{geometry}
-\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
 
 % Theorem environments
 \newtheorem{theorem}{Theorem}
@@ -30,7 +28,7 @@
 \newcommand{\dd}{\mathrm{d}}
 \newcommand{\half}{\tfrac{1}{2}}
 
-\title{Analytic-Hessian Bandwidth Selection for Kernel Density Estimation and Nadaraya--Watson Regression}
+\title{\scshape Analytic-Hessian Bandwidth Selection for Kernel Density Estimation and Nadaraya--Watson Regression}
 \author{Gaurav Sood}
 \date{\today}
 

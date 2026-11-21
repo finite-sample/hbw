@@ -1,7 +1,8 @@
 """Benchmark Newton vs Grid Search implementations across sample sizes and kernels."""
 
 import time
-from typing import Any
+from collections.abc import Callable
+from functools import partial
 
 import numpy as np
 
@@ -31,7 +32,10 @@ from hbw.nw import loocv_mse_mv, nw_bandwidth, nw_bandwidth_mv
 
 KERNELS = ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]
 
-HEADER = f"{'Kernel':<12} | {'Grid (50 pts)':<14} | {'Newton':<10} | {'Speedup':<10}"
+HEADER = (
+    "Kernel       | Grid (50 pts) | Newton     | Speedup | "
+    "Grid h | Newton h | Grid loss | Newton loss"
+)
 
 KDE_SCORE_FUNCS = {
     "gauss": lscv_score_numba_gauss,
@@ -72,20 +76,33 @@ def grid_search_nw(
     return h_grid[np.argmin(scores)]
 
 
-def benchmark_fn(
-    fn: Any, *args: Any, warmup_runs: int = 1, timed_runs: int = 3, **kwargs: Any
-) -> float:
-    """Benchmark a function, return median time in milliseconds."""
-    for _ in range(warmup_runs):
-        fn(*args, **kwargs)
-
-    times = []
-    for _ in range(timed_runs):
-        start = time.perf_counter()
-        fn(*args, **kwargs)
-        times.append(time.perf_counter() - start)
-
-    return float(1000 * np.median(times))
+def report_comparison(
+    kernel: str,
+    grid: Callable[[], float],
+    newton: Callable[[], float],
+    loss: Callable[[float], float],
+) -> None:
+    """Time both selectors and score their selected bandwidths outside the timer."""
+    selectors = (("grid", grid), ("newton", newton))
+    samples: dict[str, list[float]] = {"grid": [], "newton": []}
+    bandwidths = {}
+    for block in range(4):
+        order = selectors if block % 2 == 0 else reversed(selectors)
+        for name, select in order:
+            start = time.perf_counter()
+            h = select()
+            elapsed = time.perf_counter() - start
+            if block:  # First fit warms up each selector and its compiled kernels.
+                samples[name].append(elapsed * 1000)
+            bandwidths[name] = h
+    grid_ms = float(np.median(samples["grid"]))
+    newton_ms = float(np.median(samples["newton"]))
+    grid_h, newton_h = bandwidths["grid"], bandwidths["newton"]
+    print(
+        f"{kernel:<12} | {grid_ms:>9.2f} ms | {newton_ms:>7.2f} ms | "
+        f"{grid_ms / newton_ms:>6.2f}x | {grid_h:.6g} | {newton_h:.6g} | "
+        f"{loss(grid_h):.9g} | {loss(newton_h):.9g}"
+    )
 
 
 def run_kde_benchmarks(rng: np.random.Generator) -> None:
@@ -101,17 +118,16 @@ def run_kde_benchmarks(rng: np.random.Generator) -> None:
     for n in sample_sizes:
         print(f"\n--- n = {n} ---")
         print(HEADER)
-        print("-" * 55)
+        print("-" * len(HEADER))
 
         x = rng.standard_normal(n)
 
         for kernel in KERNELS:
-            t_grid = benchmark_fn(grid_search_kde, x, kernel, n_grid=50)
-            t_newton = benchmark_fn(kde_bandwidth, x, kernel=kernel, max_n=None)
-            speedup = t_grid / t_newton
-            print(
-                f"{kernel:<12} | {t_grid:>10.1f} ms | "
-                f"{t_newton:>6.1f} ms | {speedup:>6.1f}x"
+            report_comparison(
+                kernel,
+                partial(grid_search_kde, x, kernel),
+                partial(kde_bandwidth, x, kernel=kernel, max_n=None),
+                partial(KDE_SCORE_FUNCS[kernel], x),
             )
 
 
@@ -128,19 +144,22 @@ def run_nw_benchmarks(rng: np.random.Generator) -> None:
     for n in sample_sizes:
         print(f"\n--- n = {n} ---")
         print(HEADER)
-        print("-" * 55)
+        print("-" * len(HEADER))
 
         x = rng.uniform(-3, 3, n)
         y = np.sin(x) + 0.3 * rng.standard_normal(n)
 
         for kernel in KERNELS:
-            t_grid = benchmark_fn(grid_search_nw, x, y, kernel, n_grid=50)
-            t_newton = benchmark_fn(nw_bandwidth, x, y, kernel=kernel, max_n=None)
-            speedup = t_grid / t_newton
-            print(
-                f"{kernel:<12} | {t_grid:>10.1f} ms | "
-                f"{t_newton:>6.1f} ms | {speedup:>6.1f}x"
+            report_comparison(
+                kernel,
+                partial(grid_search_nw, x, y, kernel),
+                partial(nw_bandwidth, x, y, kernel=kernel, max_n=None),
+                partial(NW_SCORE_FUNCS[kernel], x, y),
             )
+
+
+def gaussian_kde_loss_mv(data: np.ndarray, h: float) -> float:
+    return lscv_mv_numba_gauss(data, h)[0]
 
 
 def grid_search_kde_mv(data: np.ndarray, kernel: str, n_grid: int = 50) -> float:
@@ -150,7 +169,7 @@ def grid_search_kde_mv(data: np.ndarray, kernel: str, n_grid: int = 50) -> float
     h_init = std_avg * n ** (-1.0 / (d + 4))
     h_grid = np.logspace(np.log10(h_init * 0.1), np.log10(h_init * 3), n_grid)
     if kernel == "gauss":
-        scores = [lscv_mv_numba_gauss(data, h)[0] for h in h_grid]
+        scores = [gaussian_kde_loss_mv(data, h) for h in h_grid]
     else:
         scores = [lscv_mv(data, h, kernel)[0] for h in h_grid]
     return h_grid[np.argmin(scores)]
@@ -186,16 +205,21 @@ def run_kde_mv_benchmarks(rng: np.random.Generator) -> None:
         for d in dims:
             print(f"\n--- n = {n}, d = {d} ---")
             print(HEADER)
-            print("-" * 55)
+            print("-" * len(HEADER))
 
             data = rng.standard_normal((n, d))
 
-            t_grid = benchmark_fn(grid_search_kde_mv, data, "gauss", n_grid=50)
-            t_newton = benchmark_fn(kde_bandwidth_mv, data, kernel="gauss", max_n=None)
-            speedup = t_grid / t_newton
-            print(
-                f"{'gauss':<12} | {t_grid:>10.1f} ms | "
-                f"{t_newton:>6.1f} ms | {speedup:>6.1f}x"
+            report_comparison(
+                "gauss",
+                partial(grid_search_kde_mv, data, "gauss"),
+                partial(
+                    kde_bandwidth_mv,
+                    data,
+                    kernel="gauss",
+                    max_n=None,
+                    standardize=False,
+                ),
+                partial(gaussian_kde_loss_mv, data),
             )
 
 
@@ -214,19 +238,23 @@ def run_nw_mv_benchmarks(rng: np.random.Generator) -> None:
         for d in dims:
             print(f"\n--- n = {n}, d = {d} ---")
             print(HEADER)
-            print("-" * 55)
+            print("-" * len(HEADER))
 
             data = rng.standard_normal((n, d))
             y = np.sin(data[:, 0]) + 0.5 * data[:, 1] + 0.3 * rng.standard_normal(n)
 
-            t_grid = benchmark_fn(grid_search_nw_mv, data, y, "gauss", n_grid=50)
-            t_newton = benchmark_fn(
-                nw_bandwidth_mv, data, y, kernel="gauss", max_n=None
-            )
-            speedup = t_grid / t_newton
-            print(
-                f"{'gauss':<12} | {t_grid:>10.1f} ms | "
-                f"{t_newton:>6.1f} ms | {speedup:>6.1f}x"
+            report_comparison(
+                "gauss",
+                partial(grid_search_nw_mv, data, y, "gauss"),
+                partial(
+                    nw_bandwidth_mv,
+                    data,
+                    y,
+                    kernel="gauss",
+                    max_n=None,
+                    standardize=False,
+                ),
+                partial(loocv_score_mv_numba_gauss, data, y),
             )
 
 
@@ -239,18 +267,11 @@ def run_benchmarks() -> None:
 
     rng = np.random.default_rng(42)
 
+    print("Lower loss is better. Multivariate bandwidths use raw input units.")
     run_kde_benchmarks(rng)
     run_nw_benchmarks(rng)
     run_kde_mv_benchmarks(rng)
     run_nw_mv_benchmarks(rng)
-
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-    print("Newton optimization with analytic Hessian achieves the same optimum")
-    print(
-        "as grid search with 3-8x fewer evaluations, leveraging Numba parallelization."
-    )
 
 
 if __name__ == "__main__":

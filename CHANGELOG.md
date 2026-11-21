@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.6.1] - 2026-11-20
+
+### Fixed
+
+- `nw_bandwidth(x, y, kernel="unif")` now compares leave-one-out errors across
+  different neighbor windows. The previous derivative-based search could return
+  its starting bandwidth even when a narrower window gave zero error. The
+  selector checks all attainable neighborhoods through 64 observations and a
+  fixed grid on larger samples.
 
 ### Changed
 - Adopted the py-canon fleet standard: reusable CI, docs and release workflows,

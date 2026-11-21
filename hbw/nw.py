@@ -1,7 +1,7 @@
 """NW bandwidth selection via LOOCV-MSE minimization."""
 
 import warnings
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -31,6 +31,7 @@ from ._optim import (
     _silverman_h,
     _subsample,
 )
+from ._uniform_nw import _uniform_nw_bandwidth
 
 
 def _nw_weights(
@@ -365,22 +366,23 @@ def nw_bandwidth(
     max_n: int | None = 5000,
     seed: int | None = None,
 ) -> float:
-    """Select optimal Nadaraya-Watson bandwidth via Newton-Armijo on LOOCV-MSE.
+    """Select a Nadaraya-Watson bandwidth by leave-one-out mean squared error.
 
-    Uses analytic gradients and Hessians for fast convergence (6-12 evaluations
-    vs 50-100 for grid search).
+    The uniform kernel searches distinct neighborhoods on samples up to 64
+    observations and a fixed grid on larger samples. Other kernels use
+    Newton-Armijo iterations with analytic gradients and Hessians.
 
     Args:
         x: Predictor values (1D array-like).
         y: Response values (1D array-like).
-        kernel: Kernel function: "gauss" (Gaussian) or "epan" (Epanechnikov).
+        kernel: Kernel name, including "gauss", "epan", or "unif".
         h0: Initial bandwidth guess. If None, uses Silverman's rule on x.
         max_n: Maximum sample size for optimization. If len(x) > max_n, a random
             subsample is used. Set to None to disable subsampling.
         seed: Random seed for reproducible subsampling.
 
     Returns:
-        float: Optimal bandwidth that minimizes the LOOCV MSE criterion.
+        float: Selected bandwidth for the LOOCV MSE criterion.
 
     Examples:
         >>> import numpy as np
@@ -403,6 +405,8 @@ def nw_bandwidth(
     rng = np.random.default_rng(seed)
     x_opt, y_opt = _subsample(x_arr, y_arr, max_n, rng)
 
+    if kernel == "unif":
+        return _uniform_nw_bandwidth(x_opt, cast("NDArray[Any]", y_opt), h0)
     if h0 is None:
         h0 = _silverman_h(x_opt, kernel)
 

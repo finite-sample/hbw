@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: Sood
     given-names: Gaurav
-version: 0.6.0
-date-released: 2026-04-08
+version: 0.6.1
+date-released: 2026-11-20
 repository-code: https://github.com/finite-sample/hbw
 license: MIT
 keywords:

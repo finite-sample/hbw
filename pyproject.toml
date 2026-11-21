@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "hbw"
-version = "0.6.0"
+version = "0.6.1"
 description = "Fast kernel bandwidth selection via analytic Hessian Newton optimization"
 readme = "README.md"
 license = "MIT"

@@ -1,4 +1,4 @@
-"""Benchmark Newton vs Grid Search implementations across sample sizes and kernels."""
+"""Compare package bandwidth selectors with a 50-point grid search."""
 
 import time
 from collections.abc import Callable
@@ -33,8 +33,8 @@ from hbw.nw import loocv_mse_mv, nw_bandwidth, nw_bandwidth_mv
 KERNELS = ["gauss", "epan", "unif", "biweight", "triweight", "cosine"]
 
 HEADER = (
-    "Kernel       | Grid (50 pts) | Newton     | Speedup | "
-    "Grid h | Newton h | Grid loss | Newton loss"
+    "Kernel       | Grid (50 pts) | Package    | Speedup | "
+    "Grid h | Package h | Grid loss | Package loss"
 )
 
 KDE_SCORE_FUNCS = {
@@ -79,12 +79,12 @@ def grid_search_nw(
 def report_comparison(
     kernel: str,
     grid: Callable[[], float],
-    newton: Callable[[], float],
+    package: Callable[[], float],
     loss: Callable[[float], float],
 ) -> None:
     """Time both selectors and score their selected bandwidths outside the timer."""
-    selectors = (("grid", grid), ("newton", newton))
-    samples: dict[str, list[float]] = {"grid": [], "newton": []}
+    selectors = (("grid", grid), ("package", package))
+    samples: dict[str, list[float]] = {"grid": [], "package": []}
     bandwidths = {}
     for block in range(4):
         order = selectors if block % 2 == 0 else reversed(selectors)
@@ -96,21 +96,21 @@ def report_comparison(
                 samples[name].append(elapsed * 1000)
             bandwidths[name] = h
     grid_ms = float(np.median(samples["grid"]))
-    newton_ms = float(np.median(samples["newton"]))
-    grid_h, newton_h = bandwidths["grid"], bandwidths["newton"]
+    package_ms = float(np.median(samples["package"]))
+    grid_h, package_h = bandwidths["grid"], bandwidths["package"]
     print(
-        f"{kernel:<12} | {grid_ms:>9.2f} ms | {newton_ms:>7.2f} ms | "
-        f"{grid_ms / newton_ms:>6.2f}x | {grid_h:.6g} | {newton_h:.6g} | "
-        f"{loss(grid_h):.9g} | {loss(newton_h):.9g}"
+        f"{kernel:<12} | {grid_ms:>9.2f} ms | {package_ms:>7.2f} ms | "
+        f"{grid_ms / package_ms:>6.2f}x | {grid_h:.6g} | {package_h:.6g} | "
+        f"{loss(grid_h):.9g} | {loss(package_h):.9g}"
     )
 
 
 def run_kde_benchmarks(rng: np.random.Generator) -> None:
-    """Run KDE benchmarks comparing Newton vs Grid Search across kernels."""
+    """Compare KDE bandwidth selectors across kernels."""
     print("\n" + "=" * 80)
-    print("KDE BANDWIDTH SELECTION: NEWTON vs GRID SEARCH")
+    print("KDE BANDWIDTH SELECTION: PACKAGE vs GRID SEARCH")
     print("=" * 80)
-    print("\nCompares Newton optimization vs Grid Search (50 points).")
+    print("\nCompares the package selector vs Grid Search (50 points).")
     print("Both methods use Numba-accelerated score functions.\n")
 
     sample_sizes = [1000, 2000, 5000]
@@ -132,11 +132,11 @@ def run_kde_benchmarks(rng: np.random.Generator) -> None:
 
 
 def run_nw_benchmarks(rng: np.random.Generator) -> None:
-    """Run NW benchmarks comparing Newton vs Grid Search across kernels."""
+    """Compare regression bandwidth selectors across kernels."""
     print("\n" + "=" * 80)
-    print("NW REGRESSION BANDWIDTH SELECTION: NEWTON vs GRID SEARCH")
+    print("NW REGRESSION BANDWIDTH SELECTION: PACKAGE vs GRID SEARCH")
     print("=" * 80)
-    print("\nCompares Newton optimization vs Grid Search (50 points).")
+    print("\nCompares the package selector vs Grid Search (50 points).")
     print("Both methods use Numba-accelerated score functions.\n")
 
     sample_sizes = [1000, 2000, 5000]
@@ -191,11 +191,11 @@ def grid_search_nw_mv(
 
 
 def run_kde_mv_benchmarks(rng: np.random.Generator) -> None:
-    """Run multivariate KDE benchmarks comparing Newton vs Grid Search."""
+    """Run multivariate KDE benchmarks comparing the package selector vs Grid Search."""
     print("\n" + "=" * 80)
-    print("MULTIVARIATE KDE BANDWIDTH SELECTION: NEWTON vs GRID SEARCH")
+    print("MULTIVARIATE KDE BANDWIDTH SELECTION: PACKAGE vs GRID SEARCH")
     print("=" * 80)
-    print("\nCompares Newton optimization vs Grid Search (50 points).")
+    print("\nCompares the package selector vs Grid Search (50 points).")
     print("Gaussian kernel only for multivariate.\n")
 
     sample_sizes = [500, 1000]
@@ -224,11 +224,11 @@ def run_kde_mv_benchmarks(rng: np.random.Generator) -> None:
 
 
 def run_nw_mv_benchmarks(rng: np.random.Generator) -> None:
-    """Run multivariate NW benchmarks comparing Newton vs Grid Search."""
+    """Run multivariate NW benchmarks comparing the package selector vs Grid Search."""
     print("\n" + "=" * 80)
-    print("MULTIVARIATE NW REGRESSION BANDWIDTH SELECTION: NEWTON vs GRID SEARCH")
+    print("MULTIVARIATE NW REGRESSION BANDWIDTH SELECTION: PACKAGE vs GRID SEARCH")
     print("=" * 80)
-    print("\nCompares Newton optimization vs Grid Search (50 points).")
+    print("\nCompares the package selector vs Grid Search (50 points).")
     print("Gaussian kernel only for multivariate.\n")
 
     sample_sizes = [500, 1000]

@@ -10,7 +10,9 @@ Fast kernel bandwidth selection via analytic Hessian Newton optimization.
 
 The key innovation is using closed-form analytic gradients and Hessians,
 enabling Newton optimization that converges in 6-12 evaluations vs 50-100
-for grid search.
+for grid search. Univariate regression with a uniform kernel instead compares
+neighbor windows directly. It checks every distinct neighborhood through 64
+observations and a fixed bandwidth grid on larger samples.
 
 Installation
 ------------

@@ -6,7 +6,7 @@
 [![Downloads](https://static.pepy.tech/badge/hbw)](https://pepy.tech/project/hbw)
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://finite-sample.github.io/hbw)
 
-Fast kernel bandwidth selection via analytic Hessian Newton optimization. **16× faster for KDE, 25-49× faster for NW regression** at n≥10,000.
+Select smoothing bandwidths by cross-validation for kernel density estimation and Nadaraya-Watson regression.
 
 ## Installation
 
@@ -78,7 +78,14 @@ Select optimal KDE bandwidth via LSCV minimization.
 
 ### `nw_bandwidth(x, y, kernel="gauss", h0=None, max_n=5000, seed=None)`
 
-Select optimal Nadaraya-Watson bandwidth via LOOCV-MSE minimization.
+The selector minimizes leave-one-out mean squared error. With `kernel="unif"`, each prediction averages neighbors inside the bandwidth.
+The leave-one-out error changes only when another observation enters the window.
+The selector checks every attainable neighborhood for up to 64 observations.
+For larger samples it compares a fixed grid, the initial bandwidth, and several
+multiples of the sample standard deviation. A point with no other observation
+inside its window contributes its squared response to the cross-validation loss.
+The separate `nw_predict` function uses the training mean when predicting an
+observation with an empty window.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|

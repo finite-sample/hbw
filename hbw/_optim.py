@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+_UNIFORM_START_SCALES = (0.3, 0.5, 0.8, 1.0, 1.3, 1.5, 1.8, 2.0, 2.3, 2.5, 3.0)
+
 
 def _silverman_h(x: NDArray[Any], kernel: str = "gauss") -> float:
     """Silverman's rule of thumb for initial bandwidth."""
@@ -234,7 +236,7 @@ def _newton_armijo(
 
     if kernel == "unif":
         std = float(np.std(x, ddof=1))
-        for mult in [0.3, 0.5, 0.8, 1.0, 1.3, 1.5, 1.8, 2.0, 2.3, 2.5, 3.0]:
+        for mult in _UNIFORM_START_SCALES:
             h_cand, f_cand = _run_from(mult * std)
             if f_cand < f_best:
                 h_best, f_best = h_cand, f_cand

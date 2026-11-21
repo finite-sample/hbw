@@ -11,6 +11,13 @@ All notable changes to this project will be documented in this file.
   its starting bandwidth even when a narrower window gave zero error. The
   selector checks all attainable neighborhoods through 64 observations and a
   fixed grid on larger samples.
+- Density and regression cross-validation now return corrected second derivatives
+  in one and multiple dimensions. The cosine regression kernel also has a
+  corrected first derivative. These fixes can change selected bandwidths
+  relative to PyPI 0.6.0.
+- Newton stopping criteria and line-search floors now scale with predictor units.
+  Isolated observations contribute their squared response to regression
+  cross-validation in the compiled kernels.
 
 ### Changed
 - Adopted the py-canon fleet standard: reusable CI, docs and release workflows,

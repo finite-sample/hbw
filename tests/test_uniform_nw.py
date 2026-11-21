@@ -101,3 +101,19 @@ def test_signed_cancellation_and_subsampling():
     spans = np.unique(np.abs(x[idx, None] - x[idx]))
     optimum = min(direct_loss(x[idx], y[idx], c) for c in np.r_[0.25, spans[1:]])
     assert direct_loss(x[idx], y[idx], h) == pytest.approx(optimum, rel=1e-13)
+
+
+@pytest.mark.parametrize("small", [1.0, 1e-150])
+def test_repeated_huge_responses_do_not_hide_zero_error(small):
+    x = np.array([100.0, 100.0, 0.0, 0.25, 2.0, 2.25])
+    y = np.array([1e200, 1e200, small, small, 2 * small, 2 * small])
+    h = nw_bandwidth(x, y, kernel="unif", h0=0.01)
+    assert 0.25 <= h < 1.75
+
+
+@pytest.mark.parametrize("small", [1.0, 1e-150])
+def test_large_sample_extreme_response_grid_retains_better_start(small):
+    x = np.r_[np.repeat(100.0, 64), [0.0, 0.25, 2.0, 2.25]]
+    y = np.r_[np.repeat(1e200, 64), [small, small, 2 * small, 2 * small]]
+    h = nw_bandwidth(x, y, kernel="unif", h0=0.5)
+    assert 0.25 <= h < 1.75

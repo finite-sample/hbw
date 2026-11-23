@@ -20,7 +20,7 @@ jobs:
     with:
       # The canon default matrix starts at 3.11, which this package does not
       # support; numba is the ceiling constraint and 0.67 reaches 3.14.
-      python-versions: '["3.12", "3.14"]'
+      python-versions: '["3.13", "3.14"]'
       wheel-import: hbw
       # Measured 47%. The floor is low because coverage.py cannot see inside
       # numba's JIT-compiled kernels -- _numba_kde.py and _numba_nw.py report

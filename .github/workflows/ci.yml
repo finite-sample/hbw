@@ -18,6 +18,7 @@ jobs:
   ci:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
+      run-lower-bounds: true
       # The canon default matrix starts at 3.11, which this package does not
       # support; numba is the ceiling constraint and 0.67 reaches 3.14.
       python-versions: '["3.13", "3.14"]'

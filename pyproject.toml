@@ -28,7 +28,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Typing :: Typed",
 ]
-dependencies = ["numpy>=2.4", "numba>=0.59"]
+dependencies = ["numpy>=2.4.1", "numba>=0.61.0"]
 
 [project.urls]
 Homepage = "https://github.com/finite-sample/hbw"
